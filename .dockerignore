@@ -1,0 +1,12 @@
+.git
+.cache
+build
+build-*
+cmake-build-*
+CMakeFiles
+CMakeCache.txt
+*.rknn
+*.rkllm
+*.onnx
+models
+thirdparty/rknpu2

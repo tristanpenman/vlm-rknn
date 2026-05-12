@@ -1,5 +1,36 @@
 # Qwen-VL RKNN
 
-This repo contains code for running Qwen-VL models on the Rockchip RK3588 via RKNN and RKLLM.
+This repo contains a starter CMake project for running Qwen-VL style multimodal models on Rockchip devices via RKNN/RKLLM.
 
-This code based on the [Qwen2-VL-2B Demo](https://github.com/khadas/rknn-llm/tree/main/examples/Qwen2-VL-2B_Demo) from Khadas.
+The layout is modeled after my [Marian RKNN](https://github.com/tristanpenman/marian-rknn) implementation and is intentionally small while the model runtime is being brought up.
+
+The project targets Rockchip Linux and Android devices.
+
+## Layout
+
+- `src/` - C++ placeholder library and CLI entry point.
+- `tests/` - Placeholder CTest-based executable tests.
+- `scripts/` - Host, Rockchip Linux, and Android build helpers.
+- `Dockerfile.native` - Linux/aarch64 cross-build environment for Rockchip boards.
+- `Dockerfile.android` - Android NDK build environment.
+- `docker-compose.yml` - Convenience services for the development containers.
+
+## Rockchip Linux cross-build
+
+```bash
+docker compose run --rm native ./scripts/build-native.sh Release
+```
+
+Set `QWEN_VL_RKNN_ENABLE_RKNN=ON` when the RKNN headers and runtime are available under `thirdparty/rknpu2`, or pass `-DRKNN_INCLUDE_DIR` and `-DRKNN_RUNTIME_LIB` through your own CMake invocation.
+
+## Android build
+
+```bash
+docker compose run --rm android ./scripts/build-android.sh Release
+```
+
+The Android helper expects the NDK from the Android container or an `ANDROID_NDK_HOME` path supplied by the caller.
+
+## License
+
+This code is released under the Apache License 2.0 license. See the [LICENSE](./LICENSE) file for more information.

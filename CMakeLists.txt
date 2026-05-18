@@ -22,7 +22,9 @@ if(NOT is_multi_config AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 endif()
 
-option(QWEN_VL_RKNN_BUILD_CLI "Build the qwen-vl-rknn command-line demo" ON)
+# -----------------------------------------------------------------------------
+# build config
+# -----------------------------------------------------------------------------
 
 set(QWEN_VL_RKNN_TARGET "rk3588" CACHE STRING "Rockchip target device family")
 
@@ -87,6 +89,8 @@ endif()
 # -----------------------------------------------------------------------------
 
 add_library(qwen_vl_rknn_core STATIC
+    cpp/src/file_utils.cc
+    cpp/src/logger.cc
     cpp/src/qwen_vl_rknn.cc
 )
 

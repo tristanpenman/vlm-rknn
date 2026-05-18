@@ -11,4 +11,3 @@ Testing/
 *.rkllm
 *.onnx
 models/
-thirdparty/rknpu2/

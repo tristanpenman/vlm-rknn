@@ -5,7 +5,8 @@
 
 namespace qwen_vl_rknn {
 
-Session::Session(ModelConfig config) : config_(std::move(config)) {}
+Session::Session(ModelConfig config)
+  : config_(std::move(config)) {}
 
 const ModelConfig& Session::config() const noexcept
 {
@@ -14,7 +15,7 @@ const ModelConfig& Session::config() const noexcept
 
 bool Session::is_ready() const noexcept
 {
-    return !config_.model_dir.empty();
+    return !config_.vision_encoder_path.empty() && !config_.language_model_path.empty();
 }
 
 std::string Session::describe() const
@@ -22,7 +23,8 @@ std::string Session::describe() const
     std::ostringstream stream;
     stream << "Qwen-VL RKNN session";
     stream << " target=" << target_device();
-    stream << " model_dir=" << (config_.model_dir.empty() ? "<unset>" : config_.model_dir);
+    stream << " vision_encoder_path=" << (config_.vision_encoder_path.empty() ? "<unset>" : config_.vision_encoder_path);
+    stream << " language_model_path=" << (config_.language_model_path.empty() ? "<unset>" : config_.language_model_path);
     return stream.str();
 }
 

@@ -5,7 +5,6 @@
 namespace qwen_vl_rknn {
 
 struct ModelConfig {
-    std::string model_dir;
     std::string vision_encoder_path;
     std::string language_model_path;
 };

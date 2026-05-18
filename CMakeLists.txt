@@ -49,13 +49,13 @@ if(QWEN_VL_RKNN_ENABLE_RKNN)
 endif()
 
 add_library(qwen_vl_rknn_core STATIC
-    src/qwen_vl_rknn.cc
+    cpp/src/qwen_vl_rknn.cc
 )
 add_library(qwen-vl-rknn::core ALIAS qwen_vl_rknn_core)
 
 target_include_directories(qwen_vl_rknn_core
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp/src
 )
 
 target_compile_definitions(qwen_vl_rknn_core
@@ -71,7 +71,7 @@ endif()
 
 if(QWEN_VL_RKNN_BUILD_CLI)
     add_executable(qwen-vl-rknn
-        src/main.cc
+        cpp/src/main.cc
     )
     target_link_libraries(qwen-vl-rknn PRIVATE qwen-vl-rknn::core)
 endif()
@@ -79,7 +79,7 @@ endif()
 include(CTest)
 if(BUILD_TESTING)
     add_executable(qwen-vl-rknn-tests
-        tests/qwen_vl_rknn_test.cc
+        cpp/tests/qwen_vl_rknn_test.cc
     )
     target_link_libraries(qwen-vl-rknn-tests PRIVATE qwen-vl-rknn::core)
     add_test(NAME qwen-vl-rknn COMMAND qwen-vl-rknn-tests)

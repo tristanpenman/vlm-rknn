@@ -3,10 +3,95 @@
 #include <sstream>
 #include <utility>
 
+namespace {
+
+int read_data_from_file(const char *path, char **out_data)
+{
+    FILE *fp = fopen(path, "rb");
+    if(fp == NULL) {
+        printf("fopen %s fail!\n", path);
+        return -1;
+    }
+    fseek(fp, 0, SEEK_END);
+    int file_size = ftell(fp);
+    char *data = (char *)malloc(file_size+1);
+    data[file_size] = 0;
+    fseek(fp, 0, SEEK_SET);
+    if(file_size != fread(data, 1, file_size, fp)) {
+        printf("fread %s fail!\n", path);
+        free(data);
+        fclose(fp);
+        return -1;
+    }
+    if(fp) {
+        fclose(fp);
+    }
+    *out_data = data;
+    return file_size;
+}
+
+} // namespace
+
 namespace qwen_vl_rknn {
 
 Session::Session(ModelConfig config)
   : config_(std::move(config)) {}
+
+int Session::callback(RKLLMResult *result, void *userdata, LLMCallState state)
+{
+    if (state == RKLLM_RUN_FINISH) {
+        printf("\n");
+    } else if (state == RKLLM_RUN_ERROR) {
+        printf("\\run error\n");
+    } else if (state == RKLLM_RUN_NORMAL) {
+        printf("%s", result->text);
+    }
+
+    return 0;
+}
+
+int Session::init()
+{
+    // Prepare RKLLM parameters based on the configuration
+    RKLLMParam params = rkllm_createDefaultParam();
+    params.model_path = config_.language_model_path.c_str();
+    params.top_k = 1;
+    params.max_new_tokens = config_.max_new_tokens;
+    params.max_context_len = config_.max_context_len;
+    params.skip_special_token = true;
+    params.img_start = "<|vision_start|>";
+    params.img_end = "<|vision_end|>";
+    params.img_content = "<|image_pad|>";
+
+    // Initialize RKLLM session
+    int ret = rkllm_init(&handle_, &params, &callback);
+    if (ret != 0) {
+        printf("rkllm_init fail! ret=%d\n", ret);
+        return -1;
+    }
+
+    // Load RKNN Model
+    char* model;
+    int model_len = read_data_from_file(config_.vision_encoder_path.c_str(), &model);
+    if (model == NULL) {
+        printf("load_model fail!\n");
+        return -1;
+    }
+
+    // Initialize vision encoder
+    rknn_context ctx = 0;
+    ret = rknn_init(&ctx, model, model_len, 0, NULL);
+    free(model);
+    if (ret < 0) {
+        printf("rknn_init fail! ret=%d\n", ret);
+        return -1;
+    }
+
+    // Save context for later use
+    encoder_.rknn_ctx = ctx;
+
+    return 0;
+}
 
 const ModelConfig& Session::config() const noexcept
 {

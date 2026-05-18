@@ -23,34 +23,73 @@ if(NOT is_multi_config AND NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(QWEN_VL_RKNN_BUILD_CLI "Build the qwen-vl-rknn command-line demo" ON)
-option(QWEN_VL_RKNN_ENABLE_RKNN "Require Rockchip RKNN headers/runtime while configuring" OFF)
 
 set(QWEN_VL_RKNN_TARGET "rk3588" CACHE STRING "Rockchip target device family")
 
-set(RKNN_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/include" CACHE PATH
-    "Path containing rknn_api.h")
-set(RKNN_RUNTIME_LIB "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/lib/aarch64/librknnrt.so" CACHE FILEPATH
-    "Path to librknnrt.so for the target Rockchip device")
-
-if(QWEN_VL_RKNN_ENABLE_RKNN)
-    if(NOT EXISTS "${RKNN_INCLUDE_DIR}/rknn_api.h")
-        message(FATAL_ERROR
-            "RKNN headers not found in ${RKNN_INCLUDE_DIR}. "
-            "Set -DRKNN_INCLUDE_DIR=<path-containing-rknn_api.h> or disable "
-            "-DQWEN_VL_RKNN_ENABLE_RKNN=OFF for host-only development.")
-    endif()
-
-    if(NOT EXISTS "${RKNN_RUNTIME_LIB}")
-        message(FATAL_ERROR
-            "RKNN runtime library not found: ${RKNN_RUNTIME_LIB}. "
-            "Set -DRKNN_RUNTIME_LIB=<path-to-librknnrt.so> or disable "
-            "-DQWEN_VL_RKNN_ENABLE_RKNN=OFF for host-only development.")
-    endif()
+if(ANDROID)
+    set(QWEN_VL_RKNN_ARCH ${CMAKE_ANDROID_ARCH_ABI})
+    set(DEFAULT_RKNN_RUNTIME_LIB
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/lib-android/${QWEN_VL_RKNN_ARCH}/librknnrt.so)
+    set(DEFAULT_RKLLM_RUNTIME_LIB
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/lib-android/${QWEN_VL_RKNN_ARCH}/librkllmrt.so)
+else()
+    set(QWEN_VL_RKNN_ARCH aarch64)
+    set(DEFAULT_RKNN_RUNTIME_LIB
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/lib/${QWEN_VL_RKNN_ARCH}/librknnrt.so)
+    set(DEFAULT_RKLLM_RUNTIME_LIB
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/lib/${QWEN_VL_RKNN_ARCH}/librkllmrt.so)
 endif()
+
+# -----------------------------------------------------------------------------
+# rknn runtime
+# -----------------------------------------------------------------------------
+
+set(RKNN_RUNTIME_LIB ${DEFAULT_RKNN_RUNTIME_LIB} CACHE FILEPATH
+    "Path to librknnrt.so for the selected target")
+set(RKNN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/include CACHE PATH
+    "Path containing rknn_api.h")
+
+if(NOT EXISTS ${RKNN_RUNTIME_LIB})
+    message(FATAL_ERROR
+        "RKNN runtime library not found: ${RKNN_RUNTIME_LIB}. "
+        "Set -DRKNN_RUNTIME_LIB=<path-to-librknnrt.so> (for Android use arm64-v8a runtime).")
+endif()
+
+if(NOT EXISTS ${RKNN_INCLUDE_DIR}/rknn_api.h)
+    message(FATAL_ERROR
+        "RKNN headers not found in ${RKNN_INCLUDE_DIR}. "
+        "Set -DRKNN_INCLUDE_DIR=<path-containing-rknn_api.h>.")
+endif()
+
+# -----------------------------------------------------------------------------
+# rkllm runtime
+# -----------------------------------------------------------------------------
+
+set(RKLLM_RUNTIME_LIB ${DEFAULT_RKLLM_RUNTIME_LIB} CACHE FILEPATH
+    "Path to librkllmrt.so for the selected target")
+set(RKLLM_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/include CACHE PATH
+    "Path containing rkllm.h")
+
+if(NOT EXISTS ${RKLLM_RUNTIME_LIB})
+    message(FATAL_ERROR
+        "RKLLM runtime library not found: ${RKLLM_RUNTIME_LIB}. "
+        "Set -DRKLLM_RUNTIME_LIB=<path-to-librkllmrt.so> (for Android use arm64-v8a runtime).")
+endif()
+
+if(NOT EXISTS ${RKLLM_INCLUDE_DIR}/rkllm.h)
+    message(FATAL_ERROR
+        "RKLLM headers not found in ${RKLLM_INCLUDE_DIR}. "
+        "Set -DRKLLM_INCLUDE_DIR=<path-containing-rkllm.h>.")
+endif()
+
+# -----------------------------------------------------------------------------
+# qwen_vl_rknn_core
+# -----------------------------------------------------------------------------
 
 add_library(qwen_vl_rknn_core STATIC
     cpp/src/qwen_vl_rknn.cc
 )
+
 add_library(qwen-vl-rknn::core ALIAS qwen_vl_rknn_core)
 
 target_include_directories(qwen_vl_rknn_core
@@ -63,21 +102,31 @@ target_compile_definitions(qwen_vl_rknn_core
         QWEN_VL_RKNN_TARGET="${QWEN_VL_RKNN_TARGET}"
 )
 
-if(QWEN_VL_RKNN_ENABLE_RKNN)
-    target_compile_definitions(qwen_vl_rknn_core PUBLIC QWEN_VL_RKNN_ENABLE_RKNN=1)
-    target_include_directories(qwen_vl_rknn_core PUBLIC "${RKNN_INCLUDE_DIR}")
-    target_link_libraries(qwen_vl_rknn_core PUBLIC "${RKNN_RUNTIME_LIB}")
-endif()
+target_include_directories(qwen_vl_rknn_core PUBLIC
+    "${RKNN_INCLUDE_DIR}"
+    "${RKLLM_INCLUDE_DIR}"
+)
 
-if(QWEN_VL_RKNN_BUILD_CLI)
-    add_executable(qwen-vl-rknn
-        cpp/src/main.cc
-    )
-    target_link_libraries(qwen-vl-rknn PRIVATE qwen-vl-rknn::core)
-endif()
+target_link_libraries(qwen_vl_rknn_core PUBLIC
+    "${RKNN_RUNTIME_LIB}"
+    "${RKLLM_RUNTIME_LIB}"
+)
+
+# -----------------------------------------------------------------------------
+# qwen-vl-rknn
+# -----------------------------------------------------------------------------
+
+add_executable(qwen-vl-rknn
+    cpp/src/main.cc
+)
+target_link_libraries(qwen-vl-rknn PRIVATE qwen-vl-rknn::core)
+
+# -----------------------------------------------------------------------------
+# Tests
+# -----------------------------------------------------------------------------
 
 include(CTest)
-if(BUILD_TESTING)
+if(BUILD_TESTING AND NOT ANDROID)
     add_executable(qwen-vl-rknn-tests
         cpp/tests/qwen_vl_rknn_test.cc
     )
@@ -88,4 +137,4 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Generator: ${CMAKE_GENERATOR} (multi-config: ${is_multi_config})")
 message(STATUS "Rockchip target: ${QWEN_VL_RKNN_TARGET}")
-message(STATUS "RKNN integration enabled: ${QWEN_VL_RKNN_ENABLE_RKNN}")
+message(STATUS "RKNN runtime library: ${RKNN_RUNTIME_LIB}")

@@ -6,6 +6,8 @@ The layout is modeled after my [Marian RKNN](https://github.com/tristanpenman/ma
 
 The project targets Rockchip Linux and Android devices.
 
+OpenCV is being integrated as a fetched third-party dependency for image loading and preprocessing. The initial CMake integration builds a small OpenCV module set (`core,imgproc,imgcodecs`) by default.
+
 ## Layout
 
 - `src/` - C++ placeholder library and CLI entry point.
@@ -22,6 +24,8 @@ docker compose run --rm native ./scripts/build-native.sh Release
 ```
 
 Set `QWEN_VL_RKNN_ENABLE_RKNN=ON` when the RKNN headers and runtime are available under `thirdparty/rknpu2`, or pass `-DRKNN_INCLUDE_DIR` and `-DRKNN_RUNTIME_LIB` through your own CMake invocation.
+
+OpenCV is fetched during CMake configure when `QWEN_VL_RKNN_ENABLE_OPENCV=ON` (the default). Override the fetched release (default `4.13.0`) with `-DQWEN_VL_RKNN_OPENCV_GIT_TAG=<tag-or-commit>` or trim/expand modules with `-DQWEN_VL_RKNN_OPENCV_MODULES=<comma-separated-modules>`.
 
 ## Android build
 

@@ -26,6 +26,8 @@ endif()
 # build config
 # -----------------------------------------------------------------------------
 
+option(QWEN_VL_RKNN_ENABLE_OPENCV "Fetch and link OpenCV as a third-party dependency" ON)
+
 set(QWEN_VL_RKNN_TARGET "rk3588" CACHE STRING "Rockchip target device family")
 
 if(ANDROID)
@@ -85,6 +87,14 @@ if(NOT EXISTS ${RKLLM_INCLUDE_DIR}/rkllm.h)
 endif()
 
 # -----------------------------------------------------------------------------
+# OpenCV
+# -----------------------------------------------------------------------------
+
+if(QWEN_VL_RKNN_ENABLE_OPENCV)
+    include(cmake/thirdparty/OpenCV.cmake)
+endif()
+
+# -----------------------------------------------------------------------------
 # qwen_vl_rknn_core
 # -----------------------------------------------------------------------------
 
@@ -116,6 +126,11 @@ target_link_libraries(qwen_vl_rknn_core PUBLIC
     "${RKLLM_RUNTIME_LIB}"
 )
 
+if(QWEN_VL_RKNN_ENABLE_OPENCV)
+    target_link_libraries(qwen_vl_rknn_core PUBLIC ${QWEN_VL_RKNN_OPENCV_TARGETS})
+    target_compile_definitions(qwen_vl_rknn_core PUBLIC QWEN_VL_RKNN_ENABLE_OPENCV=1)
+endif()
+
 # -----------------------------------------------------------------------------
 # qwen-vl-rknn
 # -----------------------------------------------------------------------------
@@ -141,4 +156,5 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Generator: ${CMAKE_GENERATOR} (multi-config: ${is_multi_config})")
 message(STATUS "Rockchip target: ${QWEN_VL_RKNN_TARGET}")
+message(STATUS "OpenCV enabled: ${QWEN_VL_RKNN_ENABLE_OPENCV}")
 message(STATUS "RKNN runtime library: ${RKNN_RUNTIME_LIB}")

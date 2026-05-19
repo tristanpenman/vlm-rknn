@@ -25,7 +25,7 @@ docker compose run --rm native ./scripts/build-native.sh Release
 
 Set `QWEN_VL_RKNN_ENABLE_RKNN=ON` when the RKNN headers and runtime are available under `thirdparty/rknpu2`, or pass `-DRKNN_INCLUDE_DIR` and `-DRKNN_RUNTIME_LIB` through your own CMake invocation.
 
-OpenCV is fetched during CMake configure when `QWEN_VL_RKNN_ENABLE_OPENCV=ON` (the default). Override the fetched release (default `4.13.0`) with `-DQWEN_VL_RKNN_OPENCV_GIT_TAG=<tag-or-commit>` or trim/expand modules with `-DQWEN_VL_RKNN_OPENCV_MODULES=<comma-separated-modules>`.
+OpenCV is fetched during CMake configure when `QWEN_VL_RKNN_ENABLE_OPENCV=ON` (the default). Override the fetched release (default `4.13.0`) with `-DQWEN_VL_RKNN_OPENCV_GIT_TAG=<tag-or-commit>` or trim/expand modules with `-DQWEN_VL_RKNN_OPENCV_MODULES=<comma-separated-modules>`. OpenCV sample projects are disabled by default, including Android samples; opt in with `-DQWEN_VL_RKNN_OPENCV_BUILD_SAMPLES=ON`. The default OpenCV image codec configuration keeps PNG and JPEG enabled and disables optional non-PNG/JPEG codecs.
 
 ## Android build
 

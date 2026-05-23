@@ -2,6 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ "${1:-}" == "docker" ]]; then
+  shift
+  cd "${ROOT_DIR}"
+  exec docker compose run --rm --remove-orphans --build android ./scripts/build-android.sh "$@"
+fi
+
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build-android}"
 BUILD_TYPE="${1:-Release}"
 NDK_PATH="${ANDROID_NDK_HOME:-}"

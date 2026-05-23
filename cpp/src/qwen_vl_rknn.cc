@@ -2,6 +2,7 @@
 #include <utility>
 
 #include "file_utils.h"
+#include "logger.h"
 #include "qwen_vl_rknn.h"
 
 namespace qwen_vl_rknn {
@@ -12,7 +13,7 @@ int Session::init_vision_encoder()
     char* model;
     int model_len = read_data_from_file(config_.vision_encoder_path.c_str(), &model);
     if (model == NULL) {
-        printf("load_model fail!\n");
+        LOG(ERROR) << "Failed to read data from file!";
         return -1;
     }
 
@@ -21,7 +22,24 @@ int Session::init_vision_encoder()
     int ret = rknn_init(&ctx, model, model_len, 0, NULL);
     free(model);
     if (ret < 0) {
-        printf("rknn_init fail! ret=%d\n", ret);
+        LOG(ERROR) << "Failed to initialize RKNN, error=" << ret;
+        return -1;
+    }
+
+    // Set RKNN core mask if specified in the configuration
+    if (config_.num_cores.has_value()) {
+        int core_num = config_.num_cores.value();
+        if (core_num == 2) {
+            ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_0_1);
+        } else if (core_num == 3) {
+            ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_0_1_2);
+        } else {
+            ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_AUTO);
+        }
+    }
+
+    if (ret != 0) {
+        LOG(ERROR) << "Failed to set RKNN core mask, error=" << ret;
         return -1;
     }
 
@@ -47,7 +65,7 @@ int Session::init_text_decoder()
     // Initialize RKLLM session
     int ret = rkllm_init(&decoder_.handle, &params, &callback);
     if (ret != 0) {
-        printf("rkllm_init fail! ret=%d\n", ret);
+        LOG(ERROR) << "Failed to initialize RKLLM, error=" << ret;
         return -1;
     }
 
@@ -115,11 +133,11 @@ std::string Session::describe() const
 int Session::callback(RKLLMResult *result, void *userdata, LLMCallState state)
 {
     if (state == RKLLM_RUN_FINISH) {
-        printf("\n");
+        LOG(INFO) << "RKLLM run finished";
     } else if (state == RKLLM_RUN_ERROR) {
-        printf("\\run error\n");
+        LOG(ERROR) << "RKLLM run error";
     } else if (state == RKLLM_RUN_NORMAL) {
-        printf("%s", result->text);
+        LOG(INFO) << result->text;
     }
 
     return 0;

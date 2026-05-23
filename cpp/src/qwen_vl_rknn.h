@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include <rknn_api.h>
@@ -16,6 +17,7 @@ struct VisionEncoder {
     rknn_input_output_num io_num;
     rknn_tensor_attr* input_attrs;
     rknn_tensor_attr* output_attrs;
+
     int model_channel;
     int model_width;
     int model_height;
@@ -24,8 +26,11 @@ struct VisionEncoder {
 struct ModelConfig {
     std::string vision_encoder_path;
     std::string language_model_path;
+
     int max_new_tokens = 128;
     int max_context_len = 2048;
+
+    std::optional<int> num_cores;
 };
 
 class Session {

@@ -130,6 +130,11 @@ std::string Session::describe() const
     return stream.str();
 }
 
+void Session::run(void* img_data, float* out_result)
+{
+    // TODO
+}
+
 int Session::callback(RKLLMResult *result, void *userdata, LLMCallState state)
 {
     if (state == RKLLM_RUN_FINISH) {

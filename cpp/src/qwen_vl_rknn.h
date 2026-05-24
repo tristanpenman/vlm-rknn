@@ -50,6 +50,18 @@ public:
     bool is_ready() const noexcept;
     std::string describe() const;
 
+    const VisionEncoder& vision_encoder() const
+    {
+        return encoder_;
+    }
+
+    const TextDecoder& text_decoder() const
+    {
+        return decoder_;
+    }
+
+    void run(void* img_data, float* out_result);
+
 private:
     static int callback(RKLLMResult *result, void *userdata, LLMCallState state);
 

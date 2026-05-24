@@ -101,6 +101,7 @@ endif()
 # -----------------------------------------------------------------------------
 
 add_library(qwen_vl_rknn_core STATIC
+    cpp/src/cv2_utils.cc
     cpp/src/file_utils.cc
     cpp/src/logger.cc
     cpp/src/qwen_vl_rknn.cc
@@ -108,30 +109,25 @@ add_library(qwen_vl_rknn_core STATIC
 
 add_library(qwen-vl-rknn::core ALIAS qwen_vl_rknn_core)
 
-target_include_directories(qwen_vl_rknn_core
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/cpp/src
+target_include_directories(qwen_vl_rknn_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/cpp/src
 )
 
-target_compile_definitions(qwen_vl_rknn_core
-    PUBLIC
-        QWEN_VL_RKNN_TARGET="${QWEN_VL_RKNN_TARGET}"
+target_compile_definitions(qwen_vl_rknn_core PUBLIC
+    QWEN_VL_RKNN_TARGET="${QWEN_VL_RKNN_TARGET}"
 )
 
 target_include_directories(qwen_vl_rknn_core PUBLIC
-    "${RKNN_INCLUDE_DIR}"
-    "${RKLLM_INCLUDE_DIR}"
+    ${RKNN_INCLUDE_DIR}
+    ${RKLLM_INCLUDE_DIR}
+    ${QWEN_VL_RKNN_OPENCV_INCLUDE_DIRS}
 )
 
 target_link_libraries(qwen_vl_rknn_core PUBLIC
-    "${RKNN_RUNTIME_LIB}"
-    "${RKLLM_RUNTIME_LIB}"
+    ${RKNN_RUNTIME_LIB}
+    ${RKLLM_RUNTIME_LIB}
+    ${QWEN_VL_RKNN_OPENCV_TARGETS}
 )
-
-if(QWEN_VL_RKNN_ENABLE_OPENCV)
-    target_link_libraries(qwen_vl_rknn_core PUBLIC ${QWEN_VL_RKNN_OPENCV_TARGETS})
-    target_compile_definitions(qwen_vl_rknn_core PUBLIC QWEN_VL_RKNN_ENABLE_OPENCV=1)
-endif()
 
 # -----------------------------------------------------------------------------
 # qwen-vl-rknn

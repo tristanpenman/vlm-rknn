@@ -83,6 +83,17 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(opencv)
 
+# OpenCV's in-tree consumption (via add_subdirectory) does not set
+# INTERFACE_INCLUDE_DIRECTORIES on the module targets, so downstream consumers
+# need the public header directories wired up explicitly.
+set(QWEN_VL_RKNN_OPENCV_INCLUDE_DIRS
+    "${opencv_SOURCE_DIR}/include"
+    "${opencv_SOURCE_DIR}/modules/core/include"
+    "${opencv_SOURCE_DIR}/modules/imgproc/include"
+    "${opencv_SOURCE_DIR}/modules/imgcodecs/include"
+    "${CMAKE_BINARY_DIR}"
+)
+
 set(QWEN_VL_RKNN_OPENCV_TARGETS
     opencv_core
     opencv_imgproc

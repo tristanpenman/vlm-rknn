@@ -141,6 +141,11 @@ add_executable(qwen-vl-rknn
     cpp/src/main.cc
 )
 
+# OpenCV's CMake sets CMAKE_RUNTIME_OUTPUT_DIRECTORY to <build>/bin
+set_target_properties(qwen-vl-rknn PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
+
 target_link_libraries(qwen-vl-rknn PRIVATE qwen-vl-rknn::core)
 
 # Strip debug symbols from release builds

@@ -11,6 +11,8 @@ set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 # C++17 is required
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Avoid language extensions to ensure consistent behavior across compilers
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # FetchContent: Easier than Git submodules
@@ -138,7 +140,13 @@ endif()
 add_executable(qwen-vl-rknn
     cpp/src/main.cc
 )
+
 target_link_libraries(qwen-vl-rknn PRIVATE qwen-vl-rknn::core)
+
+# Strip debug symbols from release builds
+target_link_options(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Release>:-Wl,--strip-all>
+)
 
 # -----------------------------------------------------------------------------
 # Tests

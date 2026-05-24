@@ -1,6 +1,6 @@
 #pragma once
 
-#include <opencv2/core.hpp>
+#include <opencv2/opencv.hpp>
 
 /**
  * Expand the image into a square and fill it with the specified background color.

@@ -1,4 +1,4 @@
-#include <opencv2/core.hpp>
+#include <opencv2/opencv.hpp>
 
 cv::Mat expand2square(const cv::Mat& img, const cv::Scalar& background_color)
 {

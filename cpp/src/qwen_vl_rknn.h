@@ -21,6 +21,9 @@ struct VisionEncoder {
     int model_channel;
     int model_width;
     int model_height;
+
+    int model_image_token;
+    int model_embed_size;
 };
 
 struct ModelConfig {
@@ -60,7 +63,7 @@ public:
         return decoder_;
     }
 
-    void run(void* img_data, float* out_result);
+    int run(void* img_data, float* out_result);
 
 private:
     static int callback(RKLLMResult *result, void *userdata, LLMCallState state);

@@ -79,8 +79,14 @@ int main(int argc, char** argv)
     }
 
     qwen_vl_rknn::Session session(config);
-    if (!session.is_ready()) {
+
+    if (session.init() != 0) {
         LOG(ERROR) << "Session initialization failed.";
+        return -1;
+    }
+
+    if (!session.is_ready()) {
+        LOG(ERROR) << "Session is not ready. Something went wrong.";
         return -1;
     }
 

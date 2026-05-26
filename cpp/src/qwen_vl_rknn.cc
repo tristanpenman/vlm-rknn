@@ -1,5 +1,7 @@
+#include <string>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 #include "file_utils.h"
 #include "logger.h"
@@ -130,11 +132,47 @@ std::string Session::describe() const
     return stream.str();
 }
 
-int Session::run(void* img_data, float* out_result)
+int Session::encode(void* img_data, float* out_result)
 {
     // TODO
 
     return -1;
+}
+
+int Session::decode(const std::string& prompt, char* output_buffer, size_t buffer_size, float* img_vec)
+{
+    const size_t n_image_tokens = encoder_.model_image_token;
+    const size_t image_height = encoder_.model_height;
+    const size_t image_width = encoder_.model_width;
+
+    RKLLMInferParam rkllm_infer_params;
+    memset(&rkllm_infer_params, 0, sizeof(RKLLMInferParam));
+    rkllm_infer_params.mode = RKLLM_INFER_GENERATE;
+    rkllm_infer_params.keep_history = 0;
+
+    RKLLMInput rkllm_input;
+    memset(&rkllm_input, 0, sizeof(RKLLMInput));
+    if (prompt.find("<image>") == std::string::npos) {
+        rkllm_input.input_type = RKLLM_INPUT_PROMPT;
+        rkllm_input.role = "user";
+        rkllm_input.prompt_input = (char*)prompt.c_str();
+    } else {
+        rkllm_input.input_type = RKLLM_INPUT_MULTIMODAL;
+        rkllm_input.role = "user";
+        rkllm_input.multimodal_input.prompt = (char*)prompt.c_str();
+        rkllm_input.multimodal_input.image_embed = img_vec;
+        rkllm_input.multimodal_input.n_image_tokens = n_image_tokens;
+        rkllm_input.multimodal_input.n_image = 1;
+        rkllm_input.multimodal_input.image_height = image_height;
+        rkllm_input.multimodal_input.image_width = image_width;
+    }
+
+    if (rkllm_run(decoder_.handle, &rkllm_input, &rkllm_infer_params, NULL) != 0) {
+        LOG(ERROR) << "Failed to run RKLLM";
+        return -1;
+    }
+
+    return 0;
 }
 
 int Session::callback(RKLLMResult *result, void *userdata, LLMCallState state)

@@ -105,7 +105,6 @@ int main(int argc, char** argv)
     cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
 
     // Expand the image into a square and fill it with the specified background color
-    // TODO: According the modeling_minicpmv.py
     cv::Scalar background_color(127.5, 127.5, 127.5);
     cv::Mat square_img = expand2square(img, background_color);
 
@@ -125,15 +124,34 @@ int main(int argc, char** argv)
     size_t image_embed_len = encoder.model_embed_size;
     size_t n_embed_output = encoder.io_num.n_output;
     size_t rkllm_image_embed_len = n_image_tokens * image_embed_len * n_embed_output;
-    float img_vec[rkllm_image_embed_len];
-    memset(img_vec, 0, rkllm_image_embed_len * sizeof(float));
     LOG(INFO) << "Image embedding size: " << rkllm_image_embed_len;
 
-    // Run the model
-    int ret = session.run(resized_img.data, img_vec);
+    // allocate memory for the image embedding output
+    std::vector<float> img_vec;
+    img_vec.resize(rkllm_image_embed_len);
+
+    LOG(INFO) << "Running encoder...";
+    int ret = session.encode(resized_img.data, img_vec.data());
     if (ret != 0) {
         LOG(ERROR) << "Failed to run model, error=" << ret;
         return -1;
+    }
+
+    LOG(INFO) << "Encoder ran successfully. Warming up decoder with multimodal input...";
+    ret = session.decode("<image>What is in the image?", nullptr, 0, img_vec.data());
+    if (ret != 0) {
+        LOG(ERROR) << "Failed to run decoder, error=" << ret;
+        return -1;
+    }
+
+    LOG(INFO) << "Decoder ran successfully!";
+    if (positional_args.size() >= 4) {
+        LOG(INFO) << "Running decoder with prompt: " << positional_args[3];
+        ret = session.decode(positional_args[3], nullptr, 0, img_vec.data());
+        if (ret != 0) {
+            LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
+            return -1;
+        }
     }
 
     return 0;

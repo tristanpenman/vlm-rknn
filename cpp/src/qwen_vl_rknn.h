@@ -36,6 +36,7 @@ struct ModelConfig {
     std::optional<int> num_cores;
 };
 
+
 class Session {
     int init_vision_encoder();
     int init_text_decoder();
@@ -63,7 +64,11 @@ public:
         return decoder_;
     }
 
-    int run(void* img_data, float* out_result);
+    // run the vision encoder and fill the output buffer with the resulting embedding
+    int encode(void* img_data, float* out_result);
+
+    // run the text decoder with the given prompt and fill the output buffer with the resulting text
+    int decode(const std::string& prompt, char* output_buffer, size_t buffer_size, float* img_vec);
 
 private:
     static int callback(RKLLMResult *result, void *userdata, LLMCallState state);

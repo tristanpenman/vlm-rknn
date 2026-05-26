@@ -48,13 +48,13 @@ USAGE
   exit 1
 fi
 
-cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" \
+cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" -G Ninja \
   -DANDROID_ABI=arm64-v8a \
   -DANDROID_PLATFORM=android-34 \
   -DCMAKE_TOOLCHAIN_FILE="${NDK_PATH}/build/cmake/android.toolchain.cmake" \
   -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
   -DBUILD_TESTING=OFF
 
-cmake --build "${BUILD_DIR}" -- -j"$(nproc)"
+cmake --build "${BUILD_DIR}" -j"$(nproc)"
 
 echo "Android build finished: ${BUILD_DIR}/qwen-vl-rknn"

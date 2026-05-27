@@ -32,8 +32,8 @@
 
 - CLI and UX
   + ~~Argument parsing for `--verbose`, `--cores`, etc~~
-  + Run the supplied prompt once and exit when `[prompt]` is provided
-  + Drop into an interactive REPL when no prompt is given
+  + ~~Run the supplied prompt once and exit when `[prompt]` is provided~~
+  + ~~Drop into an interactive REPL when no prompt is given~~
   + Expose `--max-new-tokens` and `--max-context-len` flags that flow through to `ModelConfig`
   + Install a `SIGINT` handler that destroys the RKLLM handle cleanly
 

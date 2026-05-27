@@ -30,6 +30,7 @@ void print_usage(const char* program)
     LOG(ERROR) << "Usage: " << program
                << " [-v|--verbose] [--cores <num_cores>] <vision_encoder_path>"
                << " <language_model_path> <image_path> [prompt]";
+    LOG(ERROR) << "If [prompt] is omitted, an interactive REPL is started.";
 }
 
 }  // namespace
@@ -151,6 +152,29 @@ int main(int argc, char** argv)
         if (ret != 0) {
             LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
             return -1;
+        }
+    } else {
+        LOG(INFO) << "No prompt provided; starting interactive REPL.";
+        LOG(INFO) << "Type ':quit' or ':exit' to end the session.";
+        std::string prompt;
+        while (true) {
+            std::cout << "> " << std::flush;
+            if (!std::getline(std::cin, prompt)) {
+                LOG(INFO) << "EOF received, exiting REPL.";
+                break;
+            }
+            if (prompt == ":quit" || prompt == ":exit") {
+                LOG(INFO) << "Exiting REPL.";
+                break;
+            }
+            if (prompt.empty()) {
+                continue;
+            }
+            ret = session.decode(prompt, nullptr, 0, img_vec.data());
+            if (ret != 0) {
+                LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
+                return -1;
+            }
         }
     }
 

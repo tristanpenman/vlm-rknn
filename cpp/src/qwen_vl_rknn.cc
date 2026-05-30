@@ -12,6 +12,8 @@ namespace qwen_vl_rknn {
 
 int Session::init_vision_encoder()
 {
+    memset(&encoder_, 0, sizeof(encoder_));
+
     // Load RKNN Model
     char* model;
     int model_len = read_data_from_file(config_.vision_encoder_path.c_str(), &model);
@@ -49,6 +51,67 @@ int Session::init_vision_encoder()
     // Save context for later use
     encoder_.rknn_ctx = ctx;
 
+    // Query model I/O information.
+    ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &encoder_.io_num, sizeof(encoder_.io_num));
+    if (ret != RKNN_SUCC) {
+        LOG(ERROR) << "Failed to query RKNN input/output count, error=" << ret;
+        return -1;
+    }
+
+    if (encoder_.io_num.n_input <= 0 || encoder_.io_num.n_output <= 0) {
+        LOG(ERROR) << "Invalid RKNN I/O count: n_input=" << encoder_.io_num.n_input
+                   << " n_output=" << encoder_.io_num.n_output;
+        return -1;
+    }
+
+    encoder_.input_attrs = static_cast<rknn_tensor_attr*>(calloc(
+        encoder_.io_num.n_input,
+        sizeof(rknn_tensor_attr)));
+    encoder_.output_attrs = static_cast<rknn_tensor_attr*>(calloc(
+        encoder_.io_num.n_output,
+        sizeof(rknn_tensor_attr)));
+
+    if (encoder_.input_attrs == nullptr || encoder_.output_attrs == nullptr) {
+        LOG(ERROR) << "Failed to allocate tensor attribute buffers";
+        return -1;
+    }
+
+    for (uint32_t i = 0; i < encoder_.io_num.n_input; ++i) {
+        encoder_.input_attrs[i].index = i;
+        ret = rknn_query(ctx, RKNN_QUERY_INPUT_ATTR, &encoder_.input_attrs[i], sizeof(rknn_tensor_attr));
+        if (ret != RKNN_SUCC) {
+            LOG(ERROR) << "Failed to query RKNN input attr for index " << i << ", error=" << ret;
+            return -1;
+        }
+    }
+
+    for (uint32_t i = 0; i < encoder_.io_num.n_output; ++i) {
+        encoder_.output_attrs[i].index = i;
+        ret = rknn_query(ctx, RKNN_QUERY_OUTPUT_ATTR, &encoder_.output_attrs[i], sizeof(rknn_tensor_attr));
+        if (ret != RKNN_SUCC) {
+            LOG(ERROR) << "Failed to query RKNN output attr for index " << i << ", error=" << ret;
+            return -1;
+        }
+    }
+
+    // Populate VisionEncoder metadata from input/output tensor shapes.
+    const auto& input0 = encoder_.input_attrs[0];
+    if (input0.n_dims < 4) {
+        LOG(ERROR) << "Unexpected input rank: " << input0.n_dims << " (expected >= 4)";
+        return -1;
+    }
+    encoder_.model_channel = input0.dims[1];
+    encoder_.model_height = input0.dims[2];
+    encoder_.model_width = input0.dims[3];
+
+    const auto& output0 = encoder_.output_attrs[0];
+    if (output0.n_dims < 3) {
+        LOG(ERROR) << "Unexpected output rank: " << output0.n_dims << " (expected >= 3)";
+        return -1;
+    }
+    encoder_.model_image_token = output0.dims[1];
+    encoder_.model_embed_size = output0.dims[2];
+
     return 0;
 }
 
@@ -77,6 +140,16 @@ int Session::init_text_decoder()
 
 void Session::cleanup_vision_encoder()
 {
+    if (encoder_.input_attrs) {
+        free(encoder_.input_attrs);
+        encoder_.input_attrs = nullptr;
+    }
+
+    if (encoder_.output_attrs) {
+        free(encoder_.output_attrs);
+        encoder_.output_attrs = nullptr;
+    }
+
     if (encoder_.rknn_ctx) {
         rknn_destroy(encoder_.rknn_ctx);
         encoder_.rknn_ctx = 0;

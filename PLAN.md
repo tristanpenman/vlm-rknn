@@ -13,9 +13,10 @@
 - Vision encoder
   + ~~Load RKNN model from disk~~
   + ~~Honour `--cores` and set the NPU core mask~~
-  + Query model input/output info and populate `VisionEncoder`
-  + Free `input_attrs` / `output_attrs` in `cleanup_vision_encoder`
-  + Implement vision encoder portion of `Session::run()`
+  + ~~Query model input/output info and populate `VisionEncoder`~~
+  + ~~Free `input_attrs` / `output_attrs` in `cleanup_vision_encoder`~~
+  + Implement `Session::encode()` with `rknn_inputs_set`, `rknn_run`, `rknn_outputs_get`, and `rknn_outputs_release`
+  + Validate tensor layout assumptions for RKNN model metadata (`NCHW` vs `NHWC`, output shape ordering)
 
 - Image preprocessing
   + ~~Load image with OpenCV, BGR → RGB~~
@@ -26,8 +27,8 @@
 - Text decoder (RKLLM)
   + ~~Configure `RKLLMParam` with Qwen-VL `<|vision_start|>` / `<|vision_end|>` / `<|image_pad|>` tokens~~
   + ~~Initialise the RKLLM handle and register the streaming callback~~
-  + Invoke `rkllm_run` with encoded image vector
-  + Update debug logging to use existing logger rather than `printf`
+  + ~~Invoke `rkllm_run` with encoded image vector~~
+  + ~~Update debug logging to use existing logger rather than `printf`~~
   + Handle `rkllm_clear_kv_cache` for a `clear` REPL command
 
 - CLI and UX
@@ -39,7 +40,7 @@
 
 - Tests
   + Fix the broken reference to `qwen_vl_rknn::target_device()`
-  + Replace the placeholder readiness check for `is_ready()`
+  + Replace the placeholder readiness check for `is_ready()` with checks that do not require real RKNN/RKLLM model files
   + Add a host-side unit test for `expand2square` covering portrait, landscape, and already-square inputs
   + Add a smoke test that runs the binary against a tiny fixture model
 
@@ -52,5 +53,5 @@
 - Documentation
   + ~~Top-level README with build instructions and project layout~~
   + ~~AGENTS.md describing the project for assistants~~
-  + Add a "Running" section to the README with concrete CLI examples once `Session::run` is functional
+  + Add a "Running" section to the README with concrete CLI examples once `Session::encode()` is functional
   + Document the expected `thirdparty/` layout and where to download the runtime libraries

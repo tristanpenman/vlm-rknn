@@ -55,3 +55,6 @@
   + ~~AGENTS.md describing the project for assistants~~
   + Add a "Running" section to the README with concrete CLI examples once `Session::encode()` is functional
   + Document the expected `thirdparty/` layout and where to download the runtime libraries
+
+- Qwen3-VL
+  + Investigate changes required to support Qwen3-VL

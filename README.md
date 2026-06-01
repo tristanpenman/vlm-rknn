@@ -36,15 +36,29 @@ OpenCV is being integrated as a fetched third-party dependency for image loading
 
 ## Native Implementation
 
+Use the native build wrapper script:
+
 ```bash
 docker compose run --rm native ./scripts/build-native.sh Release
 ```
 
-The RKNN and RKLLM headers and runtime libraries are expected under `thirdparty/rknpu2` and `thirdparty/rkllm` respectively. Override the defaults via `-DRKNN_INCLUDE_DIR`, `-DRKNN_RUNTIME_LIB`, `-DRKLLM_INCLUDE_DIR`, and `-DRKLLM_RUNTIME_LIB` when invoking CMake directly.
+The RKNN and RKLLM headers and runtime libraries are expected under `thirdparty/rknpu2` and `thirdparty/rkllm` respectively.
 
-OpenCV is fetched when configuring CMake. Override the fetched release (default `4.13.0`) with `-DQWEN_VL_RKNN_OPENCV_GIT_TAG=<tag-or-commit>` or trim/expand modules with `-DQWEN_VL_RKNN_OPENCV_MODULES=<comma-separated-modules>`. OpenCV sample projects are disabled by default. The default OpenCV image codec configuration keeps PNG and JPEG enabled and disables optional non-PNG/JPEG codecs.
+Override the defaults using one or more of the following when invoking CMake:
+* `-DRKNN_INCLUDE_DIR`
+* `-DRKNN_RUNTIME_LIB`
+* `-DRKLLM_INCLUDE_DIR`
+* `-DRKLLM_RUNTIME_LIB`
+
+OpenCV is fetched when configuring CMake. Override the fetched release (default `4.13.0`) with `-DQWEN_VL_RKNN_OPENCV_GIT_TAG=<tag-or-commit>`.
+
+You may also trim or expand the set of modules to be built with `-DQWEN_VL_RKNN_OPENCV_MODULES=<comma-separated-modules>`.
+
+OpenCV sample projects are disabled by default. The default OpenCV image codec configuration keeps PNG and JPEG enabled and disables optional non-PNG/JPEG codecs.
 
 ## Android 14
+
+Use the Android build wrapper script:
 
 ```bash
 docker compose run --rm android ./scripts/build-android.sh Release

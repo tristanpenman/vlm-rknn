@@ -37,6 +37,8 @@ void print_usage(const char* program)
 
 int main(int argc, char** argv)
 {
+    Logger::configure(std::cout);
+
     bool verbose = false;
     std::optional<int> num_cores;
     std::vector<const char*> positional_args;
@@ -44,6 +46,7 @@ int main(int argc, char** argv)
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
             verbose = true;
+            Logger::configure(std::cout, Logger::Level::Verbose);
             continue;
         }
         if (strcmp(argv[i], "--cores") == 0) {
@@ -68,9 +71,6 @@ int main(int argc, char** argv)
     if (positional_args.size() >= 4) {
         LOG(INFO) << "Prompt placeholder: " << positional_args[3];
     }
-
-    Logger::configure(std::cout, verbose ? Logger::Level::Verbose : Logger::Level::Info);
-    LOG(INFO) << "Qwen-VL RKNN Demo";
 
     qwen_vl_rknn::ModelConfig config;
     config.vision_encoder_path = positional_args[0];

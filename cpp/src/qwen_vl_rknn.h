@@ -76,6 +76,8 @@ private:
     ModelConfig config_;
     VisionEncoder encoder_;
     TextDecoder decoder_;
+
+    std::string last_decoded_text_;
 };
 
 }  // namespace qwen_vl_rknn

@@ -14,18 +14,10 @@ int Session::init_vision_encoder()
 {
     memset(&encoder_, 0, sizeof(encoder_));
 
-    // Load RKNN Model
-    char* model;
-    int model_len = read_data_from_file(config_.vision_encoder_path.c_str(), &model);
-    if (model == NULL) {
-        LOG(ERROR) << "Failed to read data from file!";
-        return -1;
-    }
-
     // Initialize vision encoder
     rknn_context ctx = 0;
-    int ret = rknn_init(&ctx, model, model_len, 0, NULL);
-    free(model);
+    int ret = rknn_init(&ctx, (void*)config_.vision_encoder_path.c_str(), 0, 0, NULL);
+    // free(model);
     if (ret < 0) {
         LOG(ERROR) << "Failed to initialize RKNN, error=" << ret;
         return -1;
@@ -41,17 +33,13 @@ int Session::init_vision_encoder()
         } else {
             ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_AUTO);
         }
+        if (ret != 0) {
+            LOG(ERROR) << "Failed to set RKNN core mask, error=" << ret;
+            return -1;
+        }
     }
 
-    if (ret != 0) {
-        LOG(ERROR) << "Failed to set RKNN core mask, error=" << ret;
-        return -1;
-    }
-
-    // Save context for later use
-    encoder_.rknn_ctx = ctx;
-
-    // Query model I/O information.
+    // Query model I/O information
     ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &encoder_.io_num, sizeof(encoder_.io_num));
     if (ret != RKNN_SUCC) {
         LOG(ERROR) << "Failed to query RKNN input/output count, error=" << ret;
@@ -67,16 +55,20 @@ int Session::init_vision_encoder()
     encoder_.input_attrs = static_cast<rknn_tensor_attr*>(calloc(
         encoder_.io_num.n_input,
         sizeof(rknn_tensor_attr)));
-    encoder_.output_attrs = static_cast<rknn_tensor_attr*>(calloc(
-        encoder_.io_num.n_output,
-        sizeof(rknn_tensor_attr)));
-
-    if (encoder_.input_attrs == nullptr || encoder_.output_attrs == nullptr) {
-        LOG(ERROR) << "Failed to allocate tensor attribute buffers";
+    if (encoder_.input_attrs == nullptr) {
+        LOG(ERROR) << "Failed to allocate input tensor attribute buffers";
         return -1;
     }
 
-    for (uint32_t i = 0; i < encoder_.io_num.n_input; ++i) {
+    encoder_.output_attrs = static_cast<rknn_tensor_attr*>(calloc(
+        encoder_.io_num.n_output,
+        sizeof(rknn_tensor_attr)));
+    if (encoder_.output_attrs == nullptr) {
+        LOG(ERROR) << "Failed to allocate output tensor attribute buffers";
+        return -1;
+    }
+
+    for (auto i = 0; i < encoder_.io_num.n_input; ++i) {
         encoder_.input_attrs[i].index = i;
         ret = rknn_query(ctx, RKNN_QUERY_INPUT_ATTR, &encoder_.input_attrs[i], sizeof(rknn_tensor_attr));
         if (ret != RKNN_SUCC) {
@@ -85,7 +77,7 @@ int Session::init_vision_encoder()
         }
     }
 
-    for (uint32_t i = 0; i < encoder_.io_num.n_output; ++i) {
+    for (auto i = 0; i < encoder_.io_num.n_output; ++i) {
         encoder_.output_attrs[i].index = i;
         ret = rknn_query(ctx, RKNN_QUERY_OUTPUT_ATTR, &encoder_.output_attrs[i], sizeof(rknn_tensor_attr));
         if (ret != RKNN_SUCC) {
@@ -94,23 +86,26 @@ int Session::init_vision_encoder()
         }
     }
 
-    // Populate VisionEncoder metadata from input/output tensor shapes.
-    const auto& input0 = encoder_.input_attrs[0];
-    if (input0.n_dims < 4) {
-        LOG(ERROR) << "Unexpected input rank: " << input0.n_dims << " (expected >= 4)";
-        return -1;
+    for (int i = 0; i < 4; i++) {
+        if (encoder_.output_attrs[0].dims[i] > 1) {
+            encoder_.model_image_token = encoder_.output_attrs[0].dims[i];
+            encoder_.model_embed_size = encoder_.output_attrs[0].dims[i + 1];
+            break;
+        }
     }
-    encoder_.model_channel = input0.dims[1];
-    encoder_.model_height = input0.dims[2];
-    encoder_.model_width = input0.dims[3];
 
-    const auto& output0 = encoder_.output_attrs[0];
-    if (output0.n_dims < 3) {
-        LOG(ERROR) << "Unexpected output rank: " << output0.n_dims << " (expected >= 3)";
-        return -1;
+    if (encoder_.input_attrs[0].fmt == RKNN_TENSOR_NCHW) {
+        encoder_.model_channel = encoder_.input_attrs[0].dims[1];
+        encoder_.model_height = encoder_.input_attrs[0].dims[2];
+        encoder_.model_width = encoder_.input_attrs[0].dims[3];
+    } else {
+        encoder_.model_height = encoder_.input_attrs[0].dims[1];
+        encoder_.model_width = encoder_.input_attrs[0].dims[2];
+        encoder_.model_channel = encoder_.input_attrs[0].dims[3];
     }
-    encoder_.model_image_token = output0.dims[1];
-    encoder_.model_embed_size = output0.dims[2];
+
+    // Save context for later use
+    encoder_.rknn_ctx = ctx;
 
     return 0;
 }
@@ -208,9 +203,87 @@ std::string Session::describe() const
 
 int Session::encode(void* img_data, float* out_result)
 {
-    // TODO
+    if (encoder_.rknn_ctx == 0) {
+        LOG(ERROR) << "Vision encoder has not been initialized";
+        return -1;
+    }
 
-    return -1;
+    if (img_data == nullptr) {
+        LOG(ERROR) << "Image input buffer is null";
+        return -1;
+    }
+
+    if (out_result == nullptr) {
+        LOG(ERROR) << "Image embedding output buffer is null";
+        return -1;
+    }
+
+    if (encoder_.io_num.n_input != 1) {
+        LOG(ERROR) << "Unsupported RKNN input count: " << encoder_.io_num.n_input;
+        return -1;
+    }
+
+    const auto& input_attr = encoder_.input_attrs[0];
+    rknn_input input;
+    memset(&input, 0, sizeof(input));
+    input.index = 0;
+    input.buf = img_data;
+    input.size = input_attr.n_elems;
+    input.pass_through = 0;
+    input.type = RKNN_TENSOR_UINT8;
+    input.fmt = RKNN_TENSOR_NHWC;
+
+    int ret = rknn_inputs_set(encoder_.rknn_ctx, 1, &input);
+    if (ret != RKNN_SUCC) {
+        LOG(ERROR) << "Failed to set RKNN input, error=" << ret;
+        return ret;
+    }
+
+    ret = rknn_run(encoder_.rknn_ctx, nullptr);
+    if (ret != RKNN_SUCC) {
+        LOG(ERROR) << "Failed to run RKNN encoder, error=" << ret;
+        return ret;
+    }
+
+    std::vector<rknn_output> outputs(encoder_.io_num.n_output);
+    for (uint32_t i = 0; i < encoder_.io_num.n_output; ++i) {
+        memset(&outputs[i], 0, sizeof(rknn_output));
+        outputs[i].index = i;
+        outputs[i].want_float = 1;
+        outputs[i].is_prealloc = 0;
+    }
+
+    ret = rknn_outputs_get(encoder_.rknn_ctx, encoder_.io_num.n_output, outputs.data(), nullptr);
+    if (ret != RKNN_SUCC) {
+        LOG(ERROR) << "Failed to get RKNN output, error=" << ret;
+        return ret;
+    }
+
+    size_t output_offset = 0;
+    for (uint32_t i = 0; i < encoder_.io_num.n_output; ++i) {
+        const auto& output_attr = encoder_.output_attrs[i];
+        const size_t output_elems = output_attr.n_elems;
+        if (outputs[i].buf == nullptr) {
+            LOG(ERROR) << "RKNN output buffer is null for index " << i;
+            ret = -1;
+            break;
+        }
+
+        memcpy(out_result + output_offset, outputs[i].buf, output_elems * sizeof(float));
+        output_offset += output_elems;
+    }
+
+    int release_ret = rknn_outputs_release(encoder_.rknn_ctx, encoder_.io_num.n_output, outputs.data());
+    if (release_ret != RKNN_SUCC) {
+        LOG(ERROR) << "Failed to release RKNN output buffers, error=" << release_ret;
+        return release_ret;
+    }
+
+    if (ret != RKNN_SUCC) {
+        return ret;
+    }
+
+    return 0;
 }
 
 int Session::decode(const std::string& prompt, char* output_buffer, size_t buffer_size, float* img_vec)
@@ -218,6 +291,8 @@ int Session::decode(const std::string& prompt, char* output_buffer, size_t buffe
     const size_t n_image_tokens = encoder_.model_image_token;
     const size_t image_height = encoder_.model_height;
     const size_t image_width = encoder_.model_width;
+
+    last_decoded_text_.clear();
 
     RKLLMInferParam rkllm_infer_params;
     memset(&rkllm_infer_params, 0, sizeof(RKLLMInferParam));
@@ -241,7 +316,7 @@ int Session::decode(const std::string& prompt, char* output_buffer, size_t buffe
         rkllm_input.multimodal_input.image_width = image_width;
     }
 
-    if (rkllm_run(decoder_.handle, &rkllm_input, &rkllm_infer_params, NULL) != 0) {
+    if (rkllm_run(decoder_.handle, &rkllm_input, &rkllm_infer_params, this) != 0) {
         LOG(ERROR) << "Failed to run RKLLM";
         return -1;
     }
@@ -251,12 +326,15 @@ int Session::decode(const std::string& prompt, char* output_buffer, size_t buffe
 
 int Session::callback(RKLLMResult *result, void *userdata, LLMCallState state)
 {
+    Session *session = static_cast<Session*>(userdata);
+
     if (state == RKLLM_RUN_FINISH) {
         LOG(INFO) << "RKLLM run finished";
     } else if (state == RKLLM_RUN_ERROR) {
         LOG(ERROR) << "RKLLM run error";
     } else if (state == RKLLM_RUN_NORMAL) {
-        LOG(INFO) << result->text;
+        session->last_decoded_text_ += result->text;
+        LOG(INFO) << session->last_decoded_text_;
     }
 
     return 0;

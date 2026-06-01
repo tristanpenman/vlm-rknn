@@ -15,7 +15,7 @@
   + ~~Honour `--cores` and set the NPU core mask~~
   + ~~Query model input/output info and populate `VisionEncoder`~~
   + ~~Free `input_attrs` / `output_attrs` in `cleanup_vision_encoder`~~
-  + Implement `Session::encode()` with `rknn_inputs_set`, `rknn_run`, `rknn_outputs_get`, and `rknn_outputs_release`
+  + ~~Implement `Session::encode()` with `rknn_inputs_set`, `rknn_run`, `rknn_outputs_get`, and `rknn_outputs_release`~~
   + Validate tensor layout assumptions for RKNN model metadata (`NCHW` vs `NHWC`, output shape ordering)
 
 - Image preprocessing

@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstring>
+#include <cstdlib>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -27,7 +29,8 @@ namespace {
 void print_usage(const char* program)
 {
     LOG(ERROR) << "Usage: " << program
-               << " [-v|--verbose] [--cores <num_cores>] <vision_encoder_path>"
+               << " [-v|--verbose] [--cores <num_cores>]"
+               << " [--max-new-tokens <tokens>] [--max-context-len <tokens>] <vision_encoder_path>"
                << " <language_model_path> <image_path> [prompt]";
     LOG(ERROR) << "If [prompt] is omitted, an interactive REPL is started.";
 }
@@ -39,6 +42,8 @@ int main(int argc, char** argv)
     Logger::configure(std::cout);
 
     std::optional<int> num_cores;
+    std::optional<int> max_new_tokens;
+    std::optional<int> max_context_len;
     std::vector<const char*> positional_args;
     positional_args.reserve(static_cast<size_t>(argc - 1));
     for (int i = 1; i < argc; i++) {
@@ -54,6 +59,30 @@ int main(int argc, char** argv)
             num_cores = std::atoi(argv[++i]);
             if (num_cores <= 0 || num_cores > 3) {
                 LOG(WARNING) << "Invalid number of cores specified: " << argv[i];
+                return -1;
+            }
+            continue;
+        }
+        if (strcmp(argv[i], "--max-new-tokens") == 0) {
+            if (i + 1 >= argc) {
+                LOG(WARNING) << "--max-new-tokens option requires an argument specifying the token count";
+                return -1;
+            }
+            max_new_tokens = std::atoi(argv[++i]);
+            if (max_new_tokens <= 0) {
+                LOG(WARNING) << "Invalid max new token count specified: " << argv[i];
+                return -1;
+            }
+            continue;
+        }
+        if (strcmp(argv[i], "--max-context-len") == 0) {
+            if (i + 1 >= argc) {
+                LOG(WARNING) << "--max-context-len option requires an argument specifying the token count";
+                return -1;
+            }
+            max_context_len = std::atoi(argv[++i]);
+            if (max_context_len <= 0) {
+                LOG(WARNING) << "Invalid max context length specified: " << argv[i];
                 return -1;
             }
             continue;
@@ -74,6 +103,12 @@ int main(int argc, char** argv)
     config.language_model_path = positional_args[1];
     if (num_cores.has_value()) {
         config.num_cores = num_cores.value();
+    }
+    if (max_new_tokens.has_value()) {
+        config.max_new_tokens = max_new_tokens.value();
+    }
+    if (max_context_len.has_value()) {
+        config.max_context_len = max_context_len.value();
     }
 
     qwen_vl_rknn::Session session(config);

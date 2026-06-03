@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cstring>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -39,13 +38,11 @@ int main(int argc, char** argv)
 {
     Logger::configure(std::cout);
 
-    bool verbose = false;
     std::optional<int> num_cores;
     std::vector<const char*> positional_args;
     positional_args.reserve(static_cast<size_t>(argc - 1));
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
-            verbose = true;
             Logger::configure(std::cout, Logger::Level::Verbose);
             continue;
         }
@@ -111,8 +108,8 @@ int main(int argc, char** argv)
 
     // Get image dimensions from the model configuration
     const auto& encoder = session.vision_encoder();
-    size_t image_width = encoder.model_width;
-    size_t image_height = encoder.model_height;
+    auto image_width = encoder.model_width;
+    auto image_height = encoder.model_height;
 
     // Resize the image
     LOG(INFO) << "Resizing image to " << image_width << "x" << image_height;
@@ -121,10 +118,10 @@ int main(int argc, char** argv)
     cv::resize(square_img, resized_img, new_size, 0, 0, cv::INTER_LINEAR);
 
     // Determine size of the embedding that will be passed to the decoder
-    size_t n_image_tokens = encoder.model_image_token;
-    size_t image_embed_len = encoder.model_embed_size;
-    size_t n_embed_output = encoder.io_num.n_output;
-    size_t rkllm_image_embed_len = n_image_tokens * image_embed_len * n_embed_output;
+    auto n_image_tokens = encoder.model_image_token;
+    auto image_embed_len = encoder.model_embed_size;
+    auto n_embed_output = encoder.io_num.n_output;
+    auto rkllm_image_embed_len = n_image_tokens * image_embed_len * n_embed_output;
     LOG(INFO) << "Image embedding size: " << rkllm_image_embed_len;
 
     // allocate memory for the image embedding output
@@ -139,7 +136,7 @@ int main(int argc, char** argv)
     }
 
     LOG(INFO) << "Encoder ran successfully. Warming up decoder with multimodal input...";
-    ret = session.decode("<image>What is in the image?", nullptr, 0, img_vec.data());
+    ret = session.decode("<image>What is in the image?", img_vec.data());
     if (ret != 0) {
         LOG(ERROR) << "Failed to run decoder, error=" << ret;
         return -1;
@@ -148,7 +145,7 @@ int main(int argc, char** argv)
     LOG(INFO) << "Decoder ran successfully!";
     if (positional_args.size() >= 4) {
         LOG(INFO) << "Running decoder with prompt: " << positional_args[3];
-        ret = session.decode(positional_args[3], nullptr, 0, img_vec.data());
+        ret = session.decode(positional_args[3], img_vec.data());
         if (ret != 0) {
             LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
             return -1;
@@ -170,7 +167,7 @@ int main(int argc, char** argv)
             if (prompt.empty()) {
                 continue;
             }
-            ret = session.decode(prompt, nullptr, 0, img_vec.data());
+            ret = session.decode(prompt, img_vec.data());
             if (ret != 0) {
                 LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
                 return -1;

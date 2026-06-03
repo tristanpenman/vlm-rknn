@@ -284,7 +284,7 @@ int Session::encode(void* img_data, float* out_result)
     return 0;
 }
 
-int Session::decode(const std::string& prompt, char* output_buffer, size_t buffer_size, float* img_vec)
+int Session::decode(const std::string& prompt, float* img_vec)
 {
     const size_t n_image_tokens = encoder_.model_image_token;
     const size_t image_height = encoder_.model_height;

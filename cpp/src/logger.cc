@@ -25,7 +25,7 @@ atomic<Logger::Level> Logger::m_minLevel = Level::Info;
 mutex Logger::m_mutex;
 
 namespace {
-const char* levelLabel(Logger::Level level)
+const char* levelLabel(const Logger::Level level)
 {
     switch (level) {
     case Logger::Level::Info:
@@ -57,12 +57,12 @@ void Logger::configure(ostream &os)
     m_os = &os;
 }
 
-void Logger::configure(Level minLevel)
+void Logger::configure(const Level minLevel)
 {
     m_minLevel = minLevel;
 }
 
-void Logger::configure(ostream &os, Level minLevel)
+void Logger::configure(ostream &os, const Level minLevel)
 {
     m_os = &os;
     m_minLevel = minLevel;
@@ -72,7 +72,7 @@ void Logger::configure(ostream &os, Level minLevel)
 // Logger::Writer implementation
 //
 
-Logger::Writer::Writer(Logger &logger, Level level)
+Logger::Writer::Writer(Logger &logger, const Level level)
   : m_logger(logger)
   , m_level(level)
 {

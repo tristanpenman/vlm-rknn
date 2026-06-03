@@ -19,7 +19,7 @@ cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" -G Ninja \
   -DCMAKE_SYSTEM_NAME=Linux \
   -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
   -DCMAKE_CXX_COMPILER="${CXX:-aarch64-linux-gnu-g++}" \
-  -DBUILD_TESTING=OFF \
+  -DBUILD_TESTING=ON \
   -DQWEN_VL_RKNN_ENABLE_RKNN="${QWEN_VL_RKNN_ENABLE_RKNN:-OFF}"
 cmake --build "${BUILD_DIR}" -j"$(nproc)"
 

@@ -30,7 +30,7 @@ int main()
     expect(session.config().language_model_path == "/models/qwen-vl/language_model.rkllm", "language_model_path should be retained");
     expect(session.describe().find("Qwen-VL RKNN session") != std::string::npos,
            "description should contain project name");
-    expect(!qwen_vl_rknn::target_device().empty(), "target device should be configured");
+    expect(session.describe().find("target=") != std::string::npos, "description should contain target device");
 
     std::cout << "placeholder tests passed" << '\n';
     return 0;

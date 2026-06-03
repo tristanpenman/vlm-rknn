@@ -55,7 +55,7 @@ cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" -G Ninja \
   -DANDROID_PLATFORM=android-34 \
   -DCMAKE_TOOLCHAIN_FILE="${NDK_PATH}/build/cmake/android.toolchain.cmake" \
   -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
-  -DBUILD_TESTING=OFF
+  -DBUILD_TESTING=ON
 
 cmake --build "${BUILD_DIR}" -j"$(nproc)"
 

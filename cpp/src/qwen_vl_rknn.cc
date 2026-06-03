@@ -4,7 +4,6 @@
 #include <utility>
 #include <vector>
 
-#include "file_utils.h"
 #include "logger.h"
 #include "qwen_vl_rknn.h"
 
@@ -17,7 +16,6 @@ int Session::init_vision_encoder()
     // Initialize vision encoder
     rknn_context ctx = 0;
     int ret = rknn_init(&ctx, (void*)config_.vision_encoder_path.c_str(), 0, 0, NULL);
-    // free(model);
     if (ret < 0) {
         LOG(ERROR) << "Failed to initialize RKNN, error=" << ret;
         return -1;

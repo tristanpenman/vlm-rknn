@@ -102,7 +102,6 @@ endif()
 
 add_library(qwen_vl_rknn_core STATIC
     cpp/src/cv2_utils.cc
-    cpp/src/file_utils.cc
     cpp/src/logger.cc
     cpp/src/qwen_vl_rknn.cc
 )

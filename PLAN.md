@@ -23,6 +23,7 @@
   + ~~Pad to square with neutral background (`expand2square`)~~
   + ~~Resize to model input dimensions~~
   + Confirm preprocessing matches the Qwen-VL reference (mean/std normalisation, pad colour)
+  + Handle image sources other than files on disk
 
 - Text decoder (RKLLM)
   + ~~Configure `RKLLMParam` with Qwen-VL `<|vision_start|>` / `<|vision_end|>` / `<|image_pad|>` tokens~~
@@ -37,12 +38,17 @@
   + ~~Drop into an interactive REPL when no prompt is given~~
   + Expose `--max-new-tokens` and `--max-context-len` flags that flow through to `ModelConfig`
   + Install a `SIGINT` handler that destroys the RKLLM handle cleanly
+  + Optional Android frontend
+    + Allow models to be switched dynamically
 
 - Tests
   + Fix the broken reference to `qwen_vl_rknn::target_device()`
   + Replace the placeholder readiness check for `is_ready()` with checks that do not require real RKNN/RKLLM model files
   + Add a host-side unit test for `expand2square` covering portrait, landscape, and already-square inputs
   + Add a smoke test that runs the binary against a tiny fixture model
+
+- Conversion
+  + Bring in scripts for model conversion
 
 - On-device verification
   + Source or convert a Qwen-VL vision encoder (`.rknn`) and language model (`.rkllm`) suitable for RK3588
@@ -56,5 +62,6 @@
   + Add a "Running" section to the README with concrete CLI examples once `Session::encode()` is functional
   + Document the expected `thirdparty/` layout and where to download the runtime libraries
 
-- Qwen3-VL
+- R&D
   + Investigate changes required to support Qwen3-VL
+  + Design RAII wrappers for RKNN primitives

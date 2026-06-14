@@ -53,6 +53,7 @@ This project targets Rockchip Linux and Android devices based on the Rockchip RK
 ### Layout
 
 - `cmake/` - CMake helper modules (e.g. third-party fetch configuration).
+- `android/` - Gradle Android test frontend and app module.
 - `cpp/src/` - C++ library sources and CLI entry point.
 - `cpp/tests/` - CTest-based executable tests.
 - `scripts/` - Linux and Android build helper scripts.
@@ -97,6 +98,17 @@ docker compose run --rm android ./scripts/build-android.sh Release
 ```
 
 The Android helper expects the NDK from the Android container or an `ANDROID_NDK_HOME` path supplied by the caller.
+
+To build the Android test frontend APK:
+
+```bash
+cd android
+./gradlew :app:assembleDebug
+```
+
+The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+The app packages the vendored Android RKNN/RKLLM runtime libraries from `thirdparty/rknpu2/lib-android` and `thirdparty/rkllm/lib-android`. To override those paths, set `rknnLibRoot` and `rkllmLibRoot` in `android/local.properties`, or use `RKNN_LIB_ROOT` and `RKLLM_LIB_ROOT` environment variables.
 
 ## Models
 

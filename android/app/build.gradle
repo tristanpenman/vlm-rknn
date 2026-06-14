@@ -14,7 +14,7 @@ def localProps = {
 def rkllmLibRoot = {
   def root = localProps['rkllmLibRoot'] ?: System.env.RKLLM_LIB_ROOT
   if (root == null) {
-    root = file('../thirdparty/rkllm/lib-android').absolutePath
+    root = file('../../thirdparty/rkllm/lib-android').absolutePath
   }
   return root
 }()
@@ -22,7 +22,7 @@ def rkllmLibRoot = {
 def rknnLibRoot = {
   def root = localProps['rknnLibRoot'] ?: System.env.RKNN_LIB_ROOT
   if (root == null) {
-    root = file('../thirdparty/rknpu2/lib-android').absolutePath
+    root = file('../../thirdparty/rknpu2/lib-android').absolutePath
   }
   return root
 }()

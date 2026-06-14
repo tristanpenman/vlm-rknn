@@ -4,7 +4,7 @@ project(qwen-vl-rknn-android)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(REPO_ROOT "${CMAKE_SOURCE_DIR}/../../../..")
+set(REPO_ROOT "${CMAKE_SOURCE_DIR}/../../../../..")
 
 if(NOT DEFINED RKLLM_INCLUDE_DIR)
   set(RKLLM_INCLUDE_DIR "${REPO_ROOT}/thirdparty/rkllm/include")

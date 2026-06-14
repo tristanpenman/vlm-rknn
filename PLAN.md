@@ -63,5 +63,5 @@
   + Document the expected `thirdparty/` layout and where to download the runtime libraries
 
 - R&D
-  + Investigate changes required to support Qwen3-VL
+  + Investigate changes required to support Qwen3-VL (**in progress**)
   + Design RAII wrappers for RKNN primitives

@@ -1,4 +1,5 @@
 .cache/
+.gradle/
 build/
 build-*/
 cmake-build-*/

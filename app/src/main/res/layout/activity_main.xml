@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent">
+
+<LinearLayout
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:orientation="horizontal"
+  android:padding="16dp"
+  android:baselineAligned="false">
+
+  <!-- Left column: configuration. -->
+  <ScrollView
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:layout_marginEnd="8dp"
+    android:fillViewport="true">
+
+    <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical">
+
+      <LinearLayout
+        android:id="@+id/models_list"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="vertical" />
+
+      <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_encoder_path"
+        android:layout_marginTop="16dp"
+        android:textStyle="bold" />
+
+      <EditText
+        android:id="@+id/encoder_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_encoder_path"
+        android:inputType="text"
+        android:singleLine="true" />
+
+      <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/label_llm_path"
+        android:textStyle="bold" />
+
+      <EditText
+        android:id="@+id/llm_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_llm_path"
+        android:inputType="text"
+        android:singleLine="true" />
+
+      <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <Button
+          android:id="@+id/init_button"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/button_init" />
+
+      </LinearLayout>
+
+      <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/label_image_path"
+        android:textStyle="bold" />
+
+      <EditText
+        android:id="@+id/image_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_image_path"
+        android:inputType="text"
+        android:singleLine="true" />
+
+      <Button
+        android:id="@+id/load_image_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:enabled="false"
+        android:text="@string/button_load_image" />
+
+      <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/label_prompt"
+        android:textStyle="bold" />
+
+      <EditText
+        android:id="@+id/prompt_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="top|start"
+        android:hint="@string/hint_prompt"
+        android:text="@string/default_prompt"
+        android:inputType="textMultiLine"
+        android:minLines="3" />
+
+      <Button
+        android:id="@+id/run_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:enabled="false"
+        android:text="@string/button_run" />
+
+    </LinearLayout>
+
+  </ScrollView>
+
+  <!-- Right column: response. -->
+  <LinearLayout
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:layout_marginStart="8dp"
+    android:background="#E3F2FD"
+    android:padding="12dp"
+    android:orientation="vertical">
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="@string/label_response"
+      android:textStyle="bold" />
+
+    <ScrollView
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1"
+      android:layout_marginTop="4dp"
+      android:fillViewport="true">
+
+      <TextView
+        android:id="@+id/response_output"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/black"
+        android:textSize="16sp"
+        android:textIsSelectable="true" />
+
+    </ScrollView>
+
+    <TextView
+      android:id="@+id/status_label"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="16dp"
+      android:textStyle="italic" />
+
+  </LinearLayout>
+
+</LinearLayout>
+
+<ImageView
+  android:id="@+id/image_preview"
+  android:layout_width="200dp"
+  android:layout_height="200dp"
+  android:layout_gravity="bottom|end"
+  android:layout_margin="24dp"
+  android:background="#80000000"
+  android:padding="4dp"
+  android:scaleType="fitCenter"
+  android:visibility="gone"
+  android:contentDescription="@string/image_preview_description" />
+
+</FrameLayout>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -46,6 +47,10 @@ struct ModelConfig {
 
 
 class Session {
+public:
+    using OutputCallback = std::function<void(const char* text, LLMCallState state)>;
+
+private:
     int init_vision_encoder();
     int init_text_decoder();
 
@@ -61,6 +66,7 @@ public:
     const ModelConfig& config() const noexcept;
     bool is_ready() const noexcept;
     std::string describe() const;
+    void set_output_callback(OutputCallback callback);
 
     const VisionEncoder& vision_encoder() const
     {
@@ -86,6 +92,7 @@ private:
     TextDecoder decoder_;
 
     std::string last_decoded_text_;
+    OutputCallback output_callback_;
 };
 
 }  // namespace qwen_vl_rknn

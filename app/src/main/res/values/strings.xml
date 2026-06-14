@@ -1,0 +1,45 @@
+<resources>
+  <string name="app_name">Qwen-VL RKNN</string>
+
+  <string name="label_encoder_path">Vision encoder model path</string>
+  <string name="hint_encoder_path">/data/local/tmp/models/qwen2_vl_2b_vision_rk3588.rknn</string>
+  <string name="label_llm_path">LLM model path</string>
+  <string name="hint_llm_path">/data/local/tmp/models/Qwen2-VL-2B-Instruct.rkllm</string>
+  <string name="label_image_path">Image path</string>
+  <string name="hint_image_path">/data/local/tmp/data/demo.jpg</string>
+  <string name="button_load_image">Load image</string>
+  <string name="label_model_path">Model path</string>
+  <string name="default_model_path">/data/local/tmp/rkllm/DeepSeek-R1-Distill-Qwen-1.5B_W8A8_RK3588.rkllm</string>
+  <string name="button_init">Load models</string>
+  <string name="models_dir">/data/local/tmp/rkllm</string>
+  <string name="status_no_models_found">No models found in %1$s.</string>
+  <string name="model_row_label">%1$s — %2$s</string>
+  <string name="status_models_dir_unreadable">Cannot read %1$s.</string>
+
+  <string name="label_prompt">Prompt</string>
+  <string name="hint_prompt">e.g. &lt;image&gt;What is in the image?</string>
+  <string name="default_prompt">&lt;image&gt;What is in the image?</string>
+  <string name="button_run">Run</string>
+
+  <string name="label_response">Response</string>
+  <string name="image_preview_description">Loaded image preview</string>
+
+  <string name="status_model_path_required">Enter both model paths.</string>
+  <string name="status_image_path_required">Enter an image path.</string>
+  <string name="status_prompt_required">Enter a prompt.</string>
+  <string name="status_not_initialised">Models not loaded.</string>
+  <string name="status_loading_model">Loading models...</string>
+  <string name="status_model_loaded">Models loaded.</string>
+  <string name="status_init_failed">Init failed (rc=%1$d).</string>
+  <string name="status_loading_image">Encoding image...</string>
+  <string name="status_image_loaded">Image encoded.</string>
+  <string name="status_image_failed">Image load failed (rc=%1$d).</string>
+  <string name="status_running">Running inference...</string>
+  <string name="status_run_failed">Inference failed.</string>
+  <string name="status_done">Done.</string>
+
+  <string name="notification_channel_name">RKNN LLM service</string>
+  <string name="notification_channel_description">Keeps the local LLM HTTP server alive.</string>
+  <string name="notification_title">RKNN LLM serving</string>
+  <string name="notification_text">Model loaded.</string>
+</resources>

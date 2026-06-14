@@ -244,6 +244,11 @@ std::string Session::describe() const
     return stream.str();
 }
 
+void Session::set_output_callback(OutputCallback callback)
+{
+    output_callback_ = std::move(callback);
+}
+
 int Session::encode(void* img_data, float* out_result)
 {
     if (encoder_.rknn_ctx == 0) {
@@ -373,11 +378,20 @@ int Session::callback(RKLLMResult *result, void *userdata, LLMCallState state)
 
     if (state == RKLLM_RUN_FINISH) {
         LOG(INFO) << "RKLLM run finished";
+        if (session->output_callback_) {
+            session->output_callback_(nullptr, state);
+        }
     } else if (state == RKLLM_RUN_ERROR) {
         LOG(ERROR) << "RKLLM run error";
+        if (session->output_callback_) {
+            session->output_callback_(nullptr, state);
+        }
     } else if (state == RKLLM_RUN_NORMAL) {
         session->last_decoded_text_ += result->text;
         LOG(INFO) << session->last_decoded_text_;
+        if (session->output_callback_) {
+            session->output_callback_(result->text, state);
+        }
     }
 
     return 0;

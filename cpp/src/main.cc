@@ -30,9 +30,31 @@ void print_usage(const char* program)
 {
     LOG(ERROR) << "Usage: " << program
                << " [-v|--verbose] [--cores <num_cores>]"
+               << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl>]"
                << " [--max-new-tokens <tokens>] [--max-context-len <tokens>] <vision_encoder_path>"
                << " <language_model_path> <image_path> [prompt]";
     LOG(ERROR) << "If [prompt] is omitted, an interactive REPL is started.";
+}
+
+bool parse_model_family(const char* value, qwen_vl_rknn::ModelFamily& family)
+{
+    if (strcmp(value, "qwen2-vl") == 0 || strcmp(value, "qwen2_vl") == 0 || strcmp(value, "qwen2") == 0) {
+        family = qwen_vl_rknn::ModelFamily::QwenVl_2;
+        return true;
+    }
+
+    if (strcmp(value, "qwen2.5-vl") == 0 || strcmp(value, "qwen2_5_vl") == 0 ||
+        strcmp(value, "qwen25-vl") == 0 || strcmp(value, "qwen2.5") == 0) {
+        family = qwen_vl_rknn::ModelFamily::QwenVl_2_5;
+        return true;
+    }
+
+    if (strcmp(value, "qwen3-vl") == 0 || strcmp(value, "qwen3_vl") == 0 || strcmp(value, "qwen3") == 0) {
+        family = qwen_vl_rknn::ModelFamily::QwenVl_3;
+        return true;
+    }
+
+    return false;
 }
 
 }  // namespace
@@ -44,6 +66,7 @@ int main(int argc, char** argv)
     std::optional<int> num_cores;
     std::optional<int> max_new_tokens;
     std::optional<int> max_context_len;
+    std::optional<qwen_vl_rknn::ModelFamily> model_family;
     std::vector<const char*> positional_args;
     positional_args.reserve(static_cast<size_t>(argc - 1));
     for (int i = 1; i < argc; i++) {
@@ -61,6 +84,20 @@ int main(int argc, char** argv)
                 LOG(WARNING) << "Invalid number of cores specified: " << argv[i];
                 return -1;
             }
+            continue;
+        }
+        if (strcmp(argv[i], "--model-family") == 0) {
+            if (i + 1 >= argc) {
+                LOG(WARNING) << "--model-family option requires one of: qwen2-vl, qwen2.5-vl, qwen3-vl";
+                return -1;
+            }
+            qwen_vl_rknn::ModelFamily parsed_family;
+            if (!parse_model_family(argv[++i], parsed_family)) {
+                LOG(WARNING) << "Invalid model family specified: " << argv[i];
+                LOG(WARNING) << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl";
+                return -1;
+            }
+            model_family = parsed_family;
             continue;
         }
         if (strcmp(argv[i], "--max-new-tokens") == 0) {
@@ -101,6 +138,9 @@ int main(int argc, char** argv)
     qwen_vl_rknn::ModelConfig config;
     config.vision_encoder_path = positional_args[0];
     config.language_model_path = positional_args[1];
+    if (model_family.has_value()) {
+        config.model_family = model_family.value();
+    }
     if (num_cores.has_value()) {
         config.num_cores = num_cores.value();
     }

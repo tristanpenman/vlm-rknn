@@ -12,8 +12,10 @@ The layout is modeled after my [Marian RKNN](https://github.com/tristanpenman/ma
 * [Project Structure](#project-structure)
   * [Layout](#layout)
   * [Dependencies](#dependencies)
-* [Native Implementation](#native-implementation)
+* [Linux CLI](#linux-cli)
 * [Android 14](#android-14)
+  * [Test Frontend](#test-frontend)
+  * [APK Installation](#apk-installation)
 * [Models](#models)
   * [Qwen2-VL-2b](#qwen2-vl-2b)
   * [Qwen2-VL-7b](#qwen2-vl-7b)
@@ -67,9 +69,9 @@ This project targets Rockchip Linux and Android devices based on the Rockchip RK
 
 OpenCV is being integrated as a fetched third-party dependency for image loading and preprocessing. The initial CMake integration builds a small OpenCV module set (`core,imgproc,imgcodecs`) by default.
 
-## Native Implementation
+## Linux CLI
 
-Use the native build wrapper script:
+To build the CLI for Linux, use the `build-native.sh` wrapper script:
 
 ```bash
 docker compose run --rm native ./scripts/build-native.sh Release
@@ -91,7 +93,7 @@ OpenCV sample projects are disabled by default. The default OpenCV image codec c
 
 ## Android 14
 
-Use the Android build wrapper script:
+To build the CLI for Android 14, use the `build-android.sh` wrapper script:
 
 ```bash
 docker compose run --rm android ./scripts/build-android.sh Release
@@ -99,7 +101,13 @@ docker compose run --rm android ./scripts/build-android.sh Release
 
 The Android helper expects the NDK from the Android container or an `ANDROID_NDK_HOME` path supplied by the caller.
 
-To build the Android test frontend APK:
+### Test Frontend
+
+This project also includes a test frontend for Android.
+
+![Test Frontend](./doc/test-frontend.png)
+
+Build the Android test frontend APK using Gradle:
 
 ```bash
 cd android
@@ -109,6 +117,26 @@ cd android
 The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 The app packages the vendored Android RKNN/RKLLM runtime libraries from `thirdparty/rknpu2/lib-android` and `thirdparty/rkllm/lib-android`. To override those paths, set `rknnLibRoot` and `rkllmLibRoot` in `android/local.properties`, or use `RKNN_LIB_ROOT` and `RKLLM_LIB_ROOT` environment variables.
+
+### APK Installation
+
+First use ADB to connect to your device:
+
+```bash
+adb connect <IP>
+```
+
+Then install the app via Gradle:
+
+```bash
+./gradlew :app:installDebug
+```
+
+Start the app on your device, or use ADB:
+
+```bash
+adb shell am start -n  "com.tristanpenman.qwenvlrknn/.MainActivity"
+```
 
 ## Models
 

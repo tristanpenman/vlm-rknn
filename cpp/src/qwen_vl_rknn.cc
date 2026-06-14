@@ -9,6 +9,50 @@
 
 namespace qwen_vl_rknn {
 
+namespace {
+
+struct ModelProfile {
+    const char* img_start;
+    const char* img_end;
+    const char* img_content;
+};
+
+const ModelProfile& model_profile_for(ModelFamily family)
+{
+    static constexpr ModelProfile qwen2_vl {
+        "<|vision_start|>",
+        "<|vision_end|>",
+        "<|image_pad|>",
+    };
+
+    // TODO: Change if necessary when the actual RKLLM models are available
+    static constexpr ModelProfile qwen2_5_vl {
+        "<|vision_start|>",
+        "<|vision_end|>",
+        "<|image_pad|>",
+    };
+
+    // TODO: Change if necessary
+    static constexpr ModelProfile qwen3_vl {
+        "<|vision_start|>",
+        "<|vision_end|>",
+        "<|image_pad|>",
+    };
+
+    switch (family) {
+    case ModelFamily::QwenVl_2:
+        return qwen2_vl;
+    case ModelFamily::QwenVl_2_5:
+        return qwen2_5_vl;
+    case ModelFamily::QwenVl_3:
+        return qwen3_vl;
+    }
+
+    return qwen2_vl;
+}
+
+}  // namespace
+
 int Session::init_vision_encoder()
 {
     memset(&encoder_, 0, sizeof(encoder_));
@@ -111,15 +155,16 @@ int Session::init_vision_encoder()
 int Session::init_text_decoder()
 {
     // Prepare RKLLM parameters based on the configuration
+    const auto& profile = model_profile_for(config_.model_family);
     RKLLMParam params = rkllm_createDefaultParam();
     params.model_path = config_.language_model_path.c_str();
     params.top_k = 1;
     params.max_new_tokens = config_.max_new_tokens;
     params.max_context_len = config_.max_context_len;
     params.skip_special_token = true;
-    params.img_start = "<|vision_start|>";
-    params.img_end = "<|vision_end|>";
-    params.img_content = "<|image_pad|>";
+    params.img_start = profile.img_start;
+    params.img_end = profile.img_end;
+    params.img_content = profile.img_content;
 
     // Initialize RKLLM session
     int ret = rkllm_init(&decoder_.handle, &params, &callback);

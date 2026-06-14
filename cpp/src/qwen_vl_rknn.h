@@ -26,7 +26,15 @@ struct VisionEncoder {
     int model_embed_size;
 };
 
+enum class ModelFamily {
+    QwenVl_2,
+    QwenVl_2_5,
+    QwenVl_3,
+};
+
 struct ModelConfig {
+    ModelFamily model_family = ModelFamily::QwenVl_2;
+
     std::string vision_encoder_path;
     std::string language_model_path;
 

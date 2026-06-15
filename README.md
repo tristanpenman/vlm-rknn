@@ -77,6 +77,19 @@ To build the CLI for Linux, use the `build-native.sh` wrapper script:
 docker compose run --rm native ./scripts/build-native.sh Release
 ```
 
+Run the CLI with named model and input arguments:
+
+```bash
+./build-native/qwen-vl-rknn \
+  --model-family qwen2-vl \
+  --vision /path/to/qwen2_vl_vision.rknn \
+  --llm /path/to/Qwen2-VL-Instruct.rkllm \
+  --image data/cell.png \
+  --prompt "<image>What is in the image?"
+```
+
+Omit `--prompt` to start the interactive REPL after the model and image are loaded.
+
 The RKNN and RKLLM headers and runtime libraries are expected under `thirdparty/rknpu2` and `thirdparty/rkllm` respectively.
 
 Override the defaults using one or more of the following when invoking CMake:

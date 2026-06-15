@@ -242,8 +242,8 @@ jint rknnLlm_run(JNIEnv* env, jclass, jstring jprompt, jobject jcallback)
         if (!g_session || !g_session->is_ready()) {
             LOGE("not initialised");
             ret = -1;
-        } else if (std::string(prompt).find("<image>") != std::string::npos && !g_has_image) {
-            LOGE("prompt references <image> but no image is loaded");
+        } else if (g_session->prompt_contains_image(prompt) && !g_has_image) {
+            LOGE("prompt references an image but no image is loaded");
             ret = -1;
         } else {
             g_session->set_output_callback([&ctx](const char* text, LLMCallState state) {

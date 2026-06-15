@@ -56,6 +56,13 @@ int main()
            "SmolVLM2 should require a vision encoder");
     expect(qwen_vl_rknn::model_family_supports_multimodal(qwen_vl_rknn::ModelFamily::SmolVLM2),
            "SmolVLM2 should be registered as multimodal");
+    expect(std::string(qwen_vl_rknn::model_family_image_placeholder(qwen_vl_rknn::ModelFamily::QwenVL2)) == "<image>",
+           "Qwen2-VL image placeholder should be exposed");
+    expect(std::string(qwen_vl_rknn::model_family_image_placeholder(qwen_vl_rknn::ModelFamily::Llama)).empty(),
+           "llama image placeholder should be empty");
+
+    expect(session.prompt_contains_image("<image>Describe this."), "Qwen2-VL should detect its image placeholder");
+    expect(!session.prompt_contains_image("Describe this."), "Qwen2-VL should allow plain text prompts");
 
     qwen_vl_rknn::ModelConfig llama_config;
     llama_config.model_family = qwen_vl_rknn::ModelFamily::Llama;
@@ -66,6 +73,8 @@ int main()
            "description should contain llama model family");
     expect(llama_session.describe().find("requires_vision_encoder=no") != std::string::npos,
            "description should report llama does not require a vision encoder");
+    expect(!llama_session.prompt_contains_image("<image>Describe this."),
+           "llama should not treat image placeholders as multimodal prompts");
 
     std::cout << "placeholder tests passed" << '\n';
     return 0;

@@ -184,6 +184,11 @@ const char* model_family_name(ModelFamily family)
     return "qwen2-vl";
 }
 
+const char* model_family_image_placeholder(ModelFamily family)
+{
+    return model_profile_for(family).image_placeholder;
+}
+
 bool model_family_uses_vision_encoder(ModelFamily family)
 {
     return model_profile_for(family).uses_vision_encoder;
@@ -403,6 +408,14 @@ std::string Session::describe() const
     return stream.str();
 }
 
+bool Session::prompt_contains_image(const std::string& prompt) const
+{
+    const auto& profile = model_profile_for(config_.model_family);
+    return profile.supports_multimodal &&
+        profile.image_placeholder[0] != '\0' &&
+        prompt.find(profile.image_placeholder) != std::string::npos;
+}
+
 void Session::set_output_callback(OutputCallback callback)
 {
     output_callback_ = std::move(callback);
@@ -506,9 +519,7 @@ int Session::decode(const std::string& prompt, float* img_vec)
 
     RKLLMInput rkllm_input;
     memset(&rkllm_input, 0, sizeof(RKLLMInput));
-    const bool prompt_contains_image = profile.image_placeholder[0] != '\0' &&
-        prompt.find(profile.image_placeholder) != std::string::npos;
-    if (!profile.supports_multimodal || !prompt_contains_image) {
+    if (!prompt_contains_image(prompt)) {
         rkllm_input.input_type = RKLLM_INPUT_PROMPT;
         rkllm_input.role = "user";
         rkllm_input.prompt_input = (char*)prompt.c_str();

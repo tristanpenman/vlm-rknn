@@ -50,6 +50,7 @@ struct ModelConfig {
 
 bool parse_model_family(std::string_view value, ModelFamily& family);
 const char* model_family_name(ModelFamily family);
+const char* model_family_image_placeholder(ModelFamily family);
 bool model_family_uses_vision_encoder(ModelFamily family);
 bool model_family_supports_multimodal(ModelFamily family);
 
@@ -73,6 +74,7 @@ public:
     const ModelConfig& config() const noexcept;
     bool is_ready() const noexcept;
     std::string describe() const;
+    bool prompt_contains_image(const std::string& prompt) const;
     void set_output_callback(OutputCallback callback);
 
     const VisionEncoder& vision_encoder() const

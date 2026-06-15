@@ -1,6 +1,7 @@
 #include <array>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -132,6 +133,39 @@ const ModelProfile& model_profile_for(ModelFamily family)
     return qwen2_vl;
 }
 
+}  // namespace
+
+bool parse_model_family(std::string_view value, ModelFamily& family)
+{
+    if (value == "qwen2-vl" || value == "qwen2_vl" || value == "qwen2") {
+        family = ModelFamily::QwenVL2;
+        return true;
+    }
+
+    if (value == "qwen2.5-vl" || value == "qwen2_5_vl" ||
+        value == "qwen25-vl" || value == "qwen2.5") {
+        family = ModelFamily::QwenVL2_5;
+        return true;
+    }
+
+    if (value == "qwen3-vl" || value == "qwen3_vl" || value == "qwen3") {
+        family = ModelFamily::QwenVL3;
+        return true;
+    }
+
+    if (value == "llama" || value == "llama3" || value == "llama3.2") {
+        family = ModelFamily::Llama;
+        return true;
+    }
+
+    if (value == "smolvlm2" || value == "smol-vlm2" || value == "smol_vlm2") {
+        family = ModelFamily::SmolVLM2;
+        return true;
+    }
+
+    return false;
+}
+
 const char* model_family_name(ModelFamily family)
 {
     switch (family) {
@@ -150,7 +184,15 @@ const char* model_family_name(ModelFamily family)
     return "qwen2-vl";
 }
 
-}  // namespace
+bool model_family_uses_vision_encoder(ModelFamily family)
+{
+    return model_profile_for(family).uses_vision_encoder;
+}
+
+bool model_family_supports_multimodal(ModelFamily family)
+{
+    return model_profile_for(family).supports_multimodal;
+}
 
 int Session::init_vision_encoder()
 {
@@ -158,7 +200,11 @@ int Session::init_vision_encoder()
 
     // Initialize vision encoder
     rknn_context ctx = 0;
-    int ret = rknn_init(&ctx, (void*)config_.vision_encoder_path.c_str(), 0, 0, NULL);
+    if (!config_.vision_encoder_path.has_value() || config_.vision_encoder_path->empty()) {
+        LOG(ERROR) << "Vision encoder path is required for " << model_family_name(config_.model_family);
+        return -1;
+    }
+    int ret = rknn_init(&ctx, (void*)config_.vision_encoder_path->c_str(), 0, 0, NULL);
     if (ret < 0) {
         LOG(ERROR) << "Failed to initialize RKNN, error=" << ret;
         return -1;
@@ -316,8 +362,10 @@ int Session::init()
         return -1;
     }
 
-    if (init_vision_encoder() != 0) {
-        return -1;
+    if (model_family_uses_vision_encoder(config_.model_family)) {
+        if (init_vision_encoder() != 0) {
+            return -1;
+        }
     }
 
     return 0;
@@ -330,7 +378,15 @@ const ModelConfig& Session::config() const noexcept
 
 bool Session::is_ready() const noexcept
 {
-    return decoder_.handle != nullptr && encoder_.rknn_ctx != 0;
+    if (decoder_.handle == nullptr) {
+        return false;
+    }
+
+    if (model_family_uses_vision_encoder(config_.model_family)) {
+        return encoder_.rknn_ctx != 0;
+    }
+
+    return true;
 }
 
 std::string Session::describe() const
@@ -342,7 +398,7 @@ std::string Session::describe() const
     stream << " target=" << QWEN_VL_RKNN_TARGET;
     stream << " model_family=" << model_family_name(config_.model_family);
     stream << " requires_vision_encoder=" << (profile.uses_vision_encoder ? "yes" : "no");
-    stream << " vision_encoder_path=" << (config_.vision_encoder_path.empty() ? "<unset>" : config_.vision_encoder_path);
+    stream << " vision_encoder_path=" << (config_.vision_encoder_path.has_value() && !config_.vision_encoder_path->empty() ? *config_.vision_encoder_path : "<unset>");
     stream << " language_model_path=" << (config_.language_model_path.empty() ? "<unset>" : config_.language_model_path);
     return stream.str();
 }
@@ -440,9 +496,6 @@ int Session::encode(void* img_data, float* out_result)
 int Session::decode(const std::string& prompt, float* img_vec)
 {
     const auto& profile = model_profile_for(config_.model_family);
-    const size_t n_image_tokens = encoder_.model_image_token;
-    const size_t image_height = encoder_.model_height;
-    const size_t image_width = encoder_.model_width;
 
     last_decoded_text_.clear();
 
@@ -460,6 +513,17 @@ int Session::decode(const std::string& prompt, float* img_vec)
         rkllm_input.role = "user";
         rkllm_input.prompt_input = (char*)prompt.c_str();
     } else {
+        if (img_vec == nullptr) {
+            LOG(ERROR) << "Prompt references " << profile.image_placeholder << " but no image embedding was provided";
+            return -1;
+        }
+        const size_t n_image_tokens = encoder_.model_image_token;
+        const size_t image_height = encoder_.model_height;
+        const size_t image_width = encoder_.model_width;
+        if (n_image_tokens == 0 || image_height == 0 || image_width == 0) {
+            LOG(ERROR) << "Vision encoder metadata is not available for multimodal decoding";
+            return -1;
+        }
         rkllm_input.input_type = RKLLM_INPUT_MULTIMODAL;
         rkllm_input.role = "user";
         rkllm_input.multimodal_input.prompt = (char*)prompt.c_str();

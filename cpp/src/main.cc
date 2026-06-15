@@ -32,8 +32,10 @@ void print_usage(const char* program)
                << " [-v|--verbose] [--cores <num_cores>]"
                << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl|llama|smolvlm2>]"
                << " [--max-new-tokens <tokens>] [--max-context-len <tokens>]"
-               << " --vision <vision_encoder_path> --llm <language_model_path>"
-               << " --image <image_path> [--prompt <prompt>]";
+               << " --llm <language_model_path>"
+               << " [--vision <vision_encoder_path> --image <image_path>]"
+               << " [--prompt <prompt>]";
+    LOG(ERROR) << "--vision and --image are required for vision model families and unsupported for llama.";
     LOG(ERROR) << "If --prompt is omitted, an interactive REPL is started.";
 }
 
@@ -45,37 +47,6 @@ bool get_option_value(int argc, char** argv, int& index, const char* option, con
     }
     value = argv[++index];
     return true;
-}
-
-bool parse_model_family(const char* value, qwen_vl_rknn::ModelFamily& family)
-{
-    if (strcmp(value, "qwen2-vl") == 0 || strcmp(value, "qwen2_vl") == 0 || strcmp(value, "qwen2") == 0) {
-        family = qwen_vl_rknn::ModelFamily::QwenVL2;
-        return true;
-    }
-
-    if (strcmp(value, "qwen2.5-vl") == 0 || strcmp(value, "qwen2_5_vl") == 0 ||
-        strcmp(value, "qwen25-vl") == 0 || strcmp(value, "qwen2.5") == 0) {
-        family = qwen_vl_rknn::ModelFamily::QwenVL2_5;
-        return true;
-    }
-
-    if (strcmp(value, "qwen3-vl") == 0 || strcmp(value, "qwen3_vl") == 0 || strcmp(value, "qwen3") == 0) {
-        family = qwen_vl_rknn::ModelFamily::QwenVL3;
-        return true;
-    }
-
-    if (strcmp(value, "llama") == 0 || strcmp(value, "llama3") == 0 || strcmp(value, "llama3.2") == 0) {
-        family = qwen_vl_rknn::ModelFamily::Llama;
-        return true;
-    }
-
-    if (strcmp(value, "smolvlm2") == 0 || strcmp(value, "smol-vlm2") == 0 || strcmp(value, "smol_vlm2") == 0) {
-        family = qwen_vl_rknn::ModelFamily::SmolVLM2;
-        return true;
-    }
-
-    return false;
 }
 
 }  // namespace
@@ -120,7 +91,7 @@ int main(int argc, char** argv)
                 return -1;
             }
             qwen_vl_rknn::ModelFamily parsed_family;
-            if (!parse_model_family(value, parsed_family)) {
+            if (!qwen_vl_rknn::parse_model_family(value, parsed_family)) {
                 LOG(WARNING) << "Invalid model family specified: " << value;
                 LOG(WARNING) << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2";
                 return -1;
@@ -190,27 +161,45 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    if (!vision_encoder_path.has_value() || vision_encoder_path->empty()) {
-        LOG(WARNING) << "Missing required --vision <vision_encoder_path> argument";
-        print_usage(argv[0]);
-        return 1;
-    }
     if (!language_model_path.has_value() || language_model_path->empty()) {
         LOG(WARNING) << "Missing required --llm <language_model_path> argument";
         print_usage(argv[0]);
         return 1;
     }
-    if (!image_path.has_value() || image_path->empty()) {
-        LOG(WARNING) << "Missing required --image <image_path> argument";
-        print_usage(argv[0]);
-        return 1;
-    }
 
     qwen_vl_rknn::ModelConfig config;
-    config.vision_encoder_path = *vision_encoder_path;
     config.language_model_path = *language_model_path;
     if (model_family.has_value()) {
         config.model_family = model_family.value();
+    }
+    const bool uses_vision_encoder = qwen_vl_rknn::model_family_uses_vision_encoder(config.model_family);
+    if (uses_vision_encoder) {
+        if (!vision_encoder_path.has_value() || vision_encoder_path->empty()) {
+            LOG(WARNING) << "Missing required --vision <vision_encoder_path> argument for "
+                         << qwen_vl_rknn::model_family_name(config.model_family);
+            print_usage(argv[0]);
+            return 1;
+        }
+        if (!image_path.has_value() || image_path->empty()) {
+            LOG(WARNING) << "Missing required --image <image_path> argument for "
+                         << qwen_vl_rknn::model_family_name(config.model_family);
+            print_usage(argv[0]);
+            return 1;
+        }
+        config.vision_encoder_path = *vision_encoder_path;
+    } else {
+        if (vision_encoder_path.has_value() && !vision_encoder_path->empty()) {
+            LOG(WARNING) << "--vision is not supported for "
+                         << qwen_vl_rknn::model_family_name(config.model_family);
+            print_usage(argv[0]);
+            return 1;
+        }
+        if (image_path.has_value() && !image_path->empty()) {
+            LOG(WARNING) << "--image is not supported for "
+                         << qwen_vl_rknn::model_family_name(config.model_family);
+            print_usage(argv[0]);
+            return 1;
+        }
     }
     if (num_cores.has_value()) {
         config.num_cores = num_cores.value();
@@ -236,6 +225,42 @@ int main(int argc, char** argv)
 
     LOG(INFO) << "Session initialized successfully.";
     LOG(INFO) << session.describe();
+
+    if (!uses_vision_encoder) {
+        int ret = 0;
+        if (prompt.has_value()) {
+            LOG(INFO) << "Running decoder with prompt: " << *prompt;
+            ret = session.decode(*prompt, nullptr);
+            if (ret != 0) {
+                LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
+                return -1;
+            }
+        } else {
+            LOG(INFO) << "No prompt provided; starting interactive REPL.";
+            LOG(INFO) << "Type ':quit' or ':exit' to end the session.";
+            std::string repl_prompt;
+            while (true) {
+                std::cout << "> " << std::flush;
+                if (!std::getline(std::cin, repl_prompt)) {
+                    LOG(INFO) << "EOF received, exiting REPL.";
+                    break;
+                }
+                if (repl_prompt == ":quit" || repl_prompt == ":exit") {
+                    LOG(INFO) << "Exiting REPL.";
+                    break;
+                }
+                if (repl_prompt.empty()) {
+                    continue;
+                }
+                ret = session.decode(repl_prompt, nullptr);
+                if (ret != 0) {
+                    LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
+                    return -1;
+                }
+            }
+        }
+        return 0;
+    }
 
     // Load the image using OpenCV
     cv::Mat img = cv::imread(*image_path);

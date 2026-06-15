@@ -3,6 +3,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include <rknn_api.h>
 #include <rkllm.h>
@@ -10,21 +11,21 @@
 namespace qwen_vl_rknn {
 
 struct TextDecoder {
-    LLMHandle handle;
+    LLMHandle handle = nullptr;
 };
 
 struct VisionEncoder {
-    rknn_context rknn_ctx;
-    rknn_input_output_num io_num;
-    rknn_tensor_attr* input_attrs;
-    rknn_tensor_attr* output_attrs;
+    rknn_context rknn_ctx = 0;
+    rknn_input_output_num io_num {};
+    rknn_tensor_attr* input_attrs = nullptr;
+    rknn_tensor_attr* output_attrs = nullptr;
 
-    int model_channel;
-    int model_width;
-    int model_height;
+    int model_channel = 0;
+    int model_width = 0;
+    int model_height = 0;
 
-    int model_image_token;
-    int model_embed_size;
+    int model_image_token = 0;
+    int model_embed_size = 0;
 };
 
 enum class ModelFamily {
@@ -38,7 +39,7 @@ enum class ModelFamily {
 struct ModelConfig {
     ModelFamily model_family = ModelFamily::QwenVL2;
 
-    std::string vision_encoder_path;
+    std::optional<std::string> vision_encoder_path;
     std::string language_model_path;
 
     int max_new_tokens = 128;
@@ -47,6 +48,10 @@ struct ModelConfig {
     std::optional<int> num_cores;
 };
 
+bool parse_model_family(std::string_view value, ModelFamily& family);
+const char* model_family_name(ModelFamily family);
+bool model_family_uses_vision_encoder(ModelFamily family);
+bool model_family_supports_multimodal(ModelFamily family);
 
 class Session {
 public:

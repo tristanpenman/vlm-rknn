@@ -30,7 +30,7 @@ void print_usage(const char* program)
 {
     LOG(ERROR) << "Usage: " << program
                << " [-v|--verbose] [--cores <num_cores>]"
-               << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl>]"
+               << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl|llama|smolvlm2>]"
                << " [--max-new-tokens <tokens>] [--max-context-len <tokens>]"
                << " --vision <vision_encoder_path> --llm <language_model_path>"
                << " --image <image_path> [--prompt <prompt>]";
@@ -50,18 +50,28 @@ bool get_option_value(int argc, char** argv, int& index, const char* option, con
 bool parse_model_family(const char* value, qwen_vl_rknn::ModelFamily& family)
 {
     if (strcmp(value, "qwen2-vl") == 0 || strcmp(value, "qwen2_vl") == 0 || strcmp(value, "qwen2") == 0) {
-        family = qwen_vl_rknn::ModelFamily::QwenVl_2;
+        family = qwen_vl_rknn::ModelFamily::QwenVL2;
         return true;
     }
 
     if (strcmp(value, "qwen2.5-vl") == 0 || strcmp(value, "qwen2_5_vl") == 0 ||
         strcmp(value, "qwen25-vl") == 0 || strcmp(value, "qwen2.5") == 0) {
-        family = qwen_vl_rknn::ModelFamily::QwenVl_2_5;
+        family = qwen_vl_rknn::ModelFamily::QwenVL2_5;
         return true;
     }
 
     if (strcmp(value, "qwen3-vl") == 0 || strcmp(value, "qwen3_vl") == 0 || strcmp(value, "qwen3") == 0) {
-        family = qwen_vl_rknn::ModelFamily::QwenVl_3;
+        family = qwen_vl_rknn::ModelFamily::QwenVL3;
+        return true;
+    }
+
+    if (strcmp(value, "llama") == 0 || strcmp(value, "llama3") == 0 || strcmp(value, "llama3.2") == 0) {
+        family = qwen_vl_rknn::ModelFamily::Llama;
+        return true;
+    }
+
+    if (strcmp(value, "smolvlm2") == 0 || strcmp(value, "smol-vlm2") == 0 || strcmp(value, "smol_vlm2") == 0) {
+        family = qwen_vl_rknn::ModelFamily::SmolVLM2;
         return true;
     }
 
@@ -106,13 +116,13 @@ int main(int argc, char** argv)
         if (strcmp(argv[i], "--model-family") == 0) {
             const char* value = nullptr;
             if (!get_option_value(argc, argv, i, "--model-family", value)) {
-                LOG(WARNING) << "--model-family option requires one of: qwen2-vl, qwen2.5-vl, qwen3-vl";
+                LOG(WARNING) << "--model-family option requires one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2";
                 return -1;
             }
             qwen_vl_rknn::ModelFamily parsed_family;
             if (!parse_model_family(value, parsed_family)) {
                 LOG(WARNING) << "Invalid model family specified: " << value;
-                LOG(WARNING) << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl";
+                LOG(WARNING) << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2";
                 return -1;
             }
             model_family = parsed_family;

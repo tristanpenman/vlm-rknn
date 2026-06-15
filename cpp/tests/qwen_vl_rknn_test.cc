@@ -21,7 +21,7 @@ int main()
     expect(!empty_session.is_ready(), "empty session should not be ready");
 
     qwen_vl_rknn::ModelConfig config;
-    expect(config.model_family == qwen_vl_rknn::ModelFamily::QwenVl_2,
+    expect(config.model_family == qwen_vl_rknn::ModelFamily::QwenVL2,
            "default model family should be Qwen2-VL");
     config.vision_encoder_path = "/models/qwen-vl/vision_encoder.rknn";
     config.language_model_path = "/models/qwen-vl/language_model.rkllm";

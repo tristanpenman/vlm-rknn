@@ -31,9 +31,9 @@ Proposed data:
 
 ```cpp
 enum class ModelFamily {
-    QwenVl_2,
-    QwenVl_2_5,
-    QwenVl_3,
+    QwenVL2,
+    QwenVL2_5,
+    QwenVL3,
     Llama,
     SmolVLM2,
 };

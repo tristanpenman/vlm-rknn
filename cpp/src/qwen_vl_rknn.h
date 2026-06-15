@@ -28,13 +28,15 @@ struct VisionEncoder {
 };
 
 enum class ModelFamily {
-    QwenVl_2,
-    QwenVl_2_5,
-    QwenVl_3,
+    QwenVL2,
+    QwenVL2_5,
+    QwenVL3,
+    Llama,
+    SmolVLM2,
 };
 
 struct ModelConfig {
-    ModelFamily model_family = ModelFamily::QwenVl_2;
+    ModelFamily model_family = ModelFamily::QwenVL2;
 
     std::string vision_encoder_path;
     std::string language_model_path;

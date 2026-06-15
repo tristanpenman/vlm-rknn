@@ -39,13 +39,30 @@ const ModelProfile& model_profile_for(ModelFamily family)
         "<|image_pad|>",
     };
 
+    static constexpr ModelProfile llama {
+        "",
+        "",
+        "",
+    };
+
+    // TODO: Replace these placeholders once converted SmolVLM2 RKLLM tokens are confirmed.
+    static constexpr ModelProfile smolvlm2 {
+        "<|vision_start|>",
+        "<|vision_end|>",
+        "<|image_pad|>",
+    };
+
     switch (family) {
-    case ModelFamily::QwenVl_2:
+    case ModelFamily::QwenVL2:
         return qwen2_vl;
-    case ModelFamily::QwenVl_2_5:
+    case ModelFamily::QwenVL2_5:
         return qwen2_5_vl;
-    case ModelFamily::QwenVl_3:
+    case ModelFamily::QwenVL3:
         return qwen3_vl;
+    case ModelFamily::Llama:
+        return llama;
+    case ModelFamily::SmolVLM2:
+        return smolvlm2;
     }
 
     return qwen2_vl;

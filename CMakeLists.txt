@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(qwen-vl-rknn VERSION 0.1.0 LANGUAGES CXX)
+project(qwen-vl-rknn VERSION 0.1.0 LANGUAGES C CXX)
 
 set(COPYRIGHT "Copyright (c) 2026 Tristan Penman")
 set(IDENTIFIER "com.tristanpenman.qwen-vl-rknn")

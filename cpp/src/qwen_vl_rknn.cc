@@ -1,3 +1,4 @@
+#include <array>
 #include <cstring>
 #include <string>
 #include <sstream>
@@ -11,45 +12,108 @@ namespace qwen_vl_rknn {
 
 namespace {
 
+enum class ResizeMode {
+    PadToSquare,
+    Stretch,
+    CenterCrop,
+};
+
+struct ImagePreprocessProfile {
+    ResizeMode resize_mode;
+    bool rgb;
+    bool normalize_in_host;
+    float pad_r;
+    float pad_g;
+    float pad_b;
+    std::array<float, 3> mean;
+    std::array<float, 3> std;
+};
+
 struct ModelProfile {
+    bool uses_vision_encoder;
+    bool supports_multimodal;
+    const char* image_placeholder;
     const char* img_start;
     const char* img_end;
     const char* img_content;
+    ImagePreprocessProfile image_preprocess;
 };
 
 const ModelProfile& model_profile_for(ModelFamily family)
 {
+    static constexpr ImagePreprocessProfile qwen_vl_image_preprocess {
+        ResizeMode::PadToSquare,
+        true,
+        false,
+        127.5f,
+        127.5f,
+        127.5f,
+        {0.0f, 0.0f, 0.0f},
+        {1.0f, 1.0f, 1.0f},
+    };
+
+    static constexpr ImagePreprocessProfile unused_image_preprocess {
+        ResizeMode::PadToSquare,
+        true,
+        false,
+        0.0f,
+        0.0f,
+        0.0f,
+        {0.0f, 0.0f, 0.0f},
+        {1.0f, 1.0f, 1.0f},
+    };
+
     static constexpr ModelProfile qwen2_vl {
+        true,
+        true,
+        "<image>",
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
+        qwen_vl_image_preprocess,
     };
 
     // TODO: Change if necessary when the actual RKLLM models are available
     static constexpr ModelProfile qwen2_5_vl {
+        true,
+        true,
+        "<image>",
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
+        qwen_vl_image_preprocess,
     };
 
     // TODO: Change if necessary
     static constexpr ModelProfile qwen3_vl {
+        true,
+        true,
+        "<image>",
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
+        qwen_vl_image_preprocess,
     };
 
     static constexpr ModelProfile llama {
+        false,
+        false,
         "",
         "",
         "",
+        "",
+        unused_image_preprocess,
     };
 
     // TODO: Replace these placeholders once converted SmolVLM2 RKLLM tokens are confirmed.
     static constexpr ModelProfile smolvlm2 {
+        true,
+        true,
+        "<image>",
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
+        qwen_vl_image_preprocess,
     };
 
     switch (family) {
@@ -66,6 +130,24 @@ const ModelProfile& model_profile_for(ModelFamily family)
     }
 
     return qwen2_vl;
+}
+
+const char* model_family_name(ModelFamily family)
+{
+    switch (family) {
+    case ModelFamily::QwenVL2:
+        return "qwen2-vl";
+    case ModelFamily::QwenVL2_5:
+        return "qwen2.5-vl";
+    case ModelFamily::QwenVL3:
+        return "qwen3-vl";
+    case ModelFamily::Llama:
+        return "llama";
+    case ModelFamily::SmolVLM2:
+        return "smolvlm2";
+    }
+
+    return "qwen2-vl";
 }
 
 }  // namespace
@@ -253,9 +335,13 @@ bool Session::is_ready() const noexcept
 
 std::string Session::describe() const
 {
+    const auto& profile = model_profile_for(config_.model_family);
+
     std::ostringstream stream;
     stream << "Qwen-VL RKNN session";
     stream << " target=" << QWEN_VL_RKNN_TARGET;
+    stream << " model_family=" << model_family_name(config_.model_family);
+    stream << " requires_vision_encoder=" << (profile.uses_vision_encoder ? "yes" : "no");
     stream << " vision_encoder_path=" << (config_.vision_encoder_path.empty() ? "<unset>" : config_.vision_encoder_path);
     stream << " language_model_path=" << (config_.language_model_path.empty() ? "<unset>" : config_.language_model_path);
     return stream.str();
@@ -353,6 +439,7 @@ int Session::encode(void* img_data, float* out_result)
 
 int Session::decode(const std::string& prompt, float* img_vec)
 {
+    const auto& profile = model_profile_for(config_.model_family);
     const size_t n_image_tokens = encoder_.model_image_token;
     const size_t image_height = encoder_.model_height;
     const size_t image_width = encoder_.model_width;
@@ -366,7 +453,9 @@ int Session::decode(const std::string& prompt, float* img_vec)
 
     RKLLMInput rkllm_input;
     memset(&rkllm_input, 0, sizeof(RKLLMInput));
-    if (prompt.find("<image>") == std::string::npos) {
+    const bool prompt_contains_image = profile.image_placeholder[0] != '\0' &&
+        prompt.find(profile.image_placeholder) != std::string::npos;
+    if (!profile.supports_multimodal || !prompt_contains_image) {
         rkllm_input.input_type = RKLLM_INPUT_PROMPT;
         rkllm_input.role = "user";
         rkllm_input.prompt_input = (char*)prompt.c_str();

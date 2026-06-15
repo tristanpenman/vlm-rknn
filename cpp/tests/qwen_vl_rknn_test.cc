@@ -33,6 +33,10 @@ int main()
     expect(session.describe().find("Qwen-VL RKNN session") != std::string::npos,
            "description should contain project name");
     expect(session.describe().find("target=") != std::string::npos, "description should contain target device");
+    expect(session.describe().find("model_family=qwen2-vl") != std::string::npos,
+           "description should contain model family");
+    expect(session.describe().find("requires_vision_encoder=yes") != std::string::npos,
+           "description should contain vision encoder requirement");
 
     std::cout << "placeholder tests passed" << '\n';
     return 0;

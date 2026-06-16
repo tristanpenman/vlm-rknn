@@ -1,6 +1,7 @@
 #include "rknn_utils.h"
 
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -106,6 +107,19 @@ const char* rknn_error_message(int ret)
         return "RKNN_ERR_TARGET_PLATFORM_UNMATCH (-13): model target platform does not match current platform";
     default:
         return "Unknown RKNN error code";
+    }
+}
+
+void log_rknn_version(rknn_context ctx)
+{
+    rknn_sdk_version rknn_version;
+    memset(&rknn_version, 0, sizeof(rknn_version));
+    const int ret = rknn_query(ctx, RKNN_QUERY_SDK_VERSION, &rknn_version, sizeof(rknn_version));
+    if (ret == RKNN_SUCC) {
+        LOG(INFO) << "RKNN version: api=" << rknn_version.api_version
+                  << " driver=" << rknn_version.drv_version;
+    } else {
+        LOG(WARNING) << "Failed to query RKNN version, error=" << rknn_error_message(ret);
     }
 }
 

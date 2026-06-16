@@ -310,6 +310,8 @@ int Session::init_vision_encoder()
         return -1;
     }
 
+    log_rknn_version(ctx);
+
     // Set RKNN core mask if specified in the configuration
     if (config_.num_cores.has_value()) {
         int core_num = config_.num_cores.value();

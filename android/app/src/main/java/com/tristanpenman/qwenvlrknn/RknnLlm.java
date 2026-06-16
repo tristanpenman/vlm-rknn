@@ -1,11 +1,5 @@
 package com.tristanpenman.qwenvlrknn;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.Rect;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -15,7 +9,7 @@ import androidx.annotation.Nullable;
  * <p>This is a process-wide singleton: only one model pair can be
  * loaded at a time. Call {@link #init} before {@link #run}, then
  * optionally {@link #loadImage} to attach an image to subsequent
- * prompts that contain the {@code <image>} marker. Call
+ * prompts that contain the active model's image marker. Call
  * {@link #cleanup} when done.
  */
 public final class RknnLlm {
@@ -59,11 +53,10 @@ public final class RknnLlm {
   }
 
   /**
-   * Load an image from the given filesystem path, preprocess it
-   * (centre-pad to a square on a mid-grey background, resize to the
-   * encoder's expected input dimensions), encode it, and cache the
-   * embeddings for use by subsequent {@link #run} calls whose prompt
-   * contains the {@code <image>} marker.
+   * Load an image from the given filesystem path, preprocess it using
+   * the active native model profile, encode it, and cache the embeddings
+   * for use by subsequent {@link #run} calls whose prompt contains the
+   * model's image marker.
    *
    * @return 0 on success, non-zero on failure.
    */
@@ -71,36 +64,14 @@ public final class RknnLlm {
     if (!initialised) {
       return -1;
     }
-    final int[] dims = nativeGetImageInputSize();
-    if (dims == null || dims.length != 2 || dims[0] <= 0 || dims[1] <= 0) {
-      return -1;
-    }
-    final int targetWidth = dims[0];
-    final int targetHeight = dims[1];
-
-    final Bitmap original = BitmapFactory.decodeFile(imagePath);
-    if (original == null) {
-      return -1;
-    }
-
-    Bitmap preprocessed = null;
-    try {
-      preprocessed = expandAndResize(original, targetWidth, targetHeight);
-      final byte[] pixels = bitmapToRgb(preprocessed);
-      final int rc = nativeSetImage(pixels, targetWidth, targetHeight);
-      hasImage = (rc == 0);
-      return rc;
-    } finally {
-      if (preprocessed != null && preprocessed != original) {
-        preprocessed.recycle();
-      }
-      original.recycle();
-    }
+    final int rc = nativeSetImage(imagePath);
+    hasImage = (rc == 0);
+    return rc;
   }
 
   /**
    * Run a single inference with the given prompt. If an image has
-   * been loaded and the prompt contains {@code <image>}, runs
+   * been loaded and the prompt contains the active model's image marker, runs
    * multimodal inference; otherwise plain-text. Blocks until the
    * generation completes, dispatching callbacks on the calling
    * thread as text is produced.
@@ -126,50 +97,8 @@ public final class RknnLlm {
     }
   }
 
-  private static Bitmap expandAndResize(Bitmap src, int targetWidth, int targetHeight) {
-    final int srcWidth = src.getWidth();
-    final int srcHeight = src.getHeight();
-    final int size = Math.max(srcWidth, srcHeight);
-
-    // Centre-pad to a square on a mid-grey background (matches the
-    // expand2square step in the upstream multimodal demo).
-    final Bitmap square = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
-    final Canvas canvas = new Canvas(square);
-    canvas.drawColor(0xFF7F7F7F);
-    final int xOffset = (size - srcWidth) / 2;
-    final int yOffset = (size - srcHeight) / 2;
-    canvas.drawBitmap(src, null,
-        new Rect(xOffset, yOffset, xOffset + srcWidth, yOffset + srcHeight),
-        new Paint(Paint.FILTER_BITMAP_FLAG));
-
-    if (size == targetWidth && size == targetHeight) {
-      return square;
-    }
-    final Bitmap resized = Bitmap.createScaledBitmap(square, targetWidth, targetHeight, true);
-    if (resized != square) {
-      square.recycle();
-    }
-    return resized;
-  }
-
-  private static byte[] bitmapToRgb(Bitmap bitmap) {
-    final int width = bitmap.getWidth();
-    final int height = bitmap.getHeight();
-    final int[] argb = new int[width * height];
-    bitmap.getPixels(argb, 0, width, 0, 0, width, height);
-    final byte[] rgb = new byte[width * height * 3];
-    for (int i = 0; i < argb.length; i++) {
-      final int p = argb[i];
-      rgb[i * 3]     = (byte) ((p >> 16) & 0xFF);  // R
-      rgb[i * 3 + 1] = (byte) ((p >> 8) & 0xFF);   // G
-      rgb[i * 3 + 2] = (byte) (p & 0xFF);          // B
-    }
-    return rgb;
-  }
-
   private static native int nativeInit(String encoderPath, String llmPath);
-  private static native int[] nativeGetImageInputSize();
-  private static native int nativeSetImage(byte[] rgbPixels, int width, int height);
+  private static native int nativeSetImage(String imagePath);
   private static native int nativeRun(String prompt, RknnLlmCallback callback);
   private static native void nativeCleanup();
 }

@@ -4,6 +4,8 @@ project(qwen-vl-rknn-android)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
+
 set(REPO_ROOT "${CMAKE_SOURCE_DIR}/../../../../..")
 
 if(NOT DEFINED RKLLM_INCLUDE_DIR)
@@ -34,10 +36,13 @@ if(NOT EXISTS "${RKNN_RUNTIME_LIB}")
     "Set RKNN_RUNTIME_LIB or rknnRuntimeLib to the Android RKNN runtime.")
 endif()
 
+include("${REPO_ROOT}/cmake/thirdparty/OpenCV.cmake")
+
 include_directories(
     "${REPO_ROOT}/cpp/src"
     "${RKLLM_INCLUDE_DIR}"
-    "${RKNN_INCLUDE_DIR}")
+    "${RKNN_INCLUDE_DIR}"
+    ${QWEN_VL_RKNN_OPENCV_INCLUDE_DIRS})
 
 add_library(qwen-vl-rknn-jni SHARED
     rknn_jni.cpp
@@ -50,4 +55,5 @@ target_compile_definitions(qwen-vl-rknn-jni PRIVATE
 target_link_libraries(qwen-vl-rknn-jni
     "${RKLLM_RUNTIME_LIB}"
     "${RKNN_RUNTIME_LIB}"
+    ${QWEN_VL_RKNN_OPENCV_TARGETS}
     log)

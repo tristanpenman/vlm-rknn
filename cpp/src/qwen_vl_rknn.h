@@ -1,10 +1,12 @@
 #pragma once
 
+#include <array>
 #include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
 
+#include <opencv2/core.hpp>
 #include <rknn_api.h>
 #include <rkllm.h>
 
@@ -36,6 +38,23 @@ enum class ModelFamily {
     SmolVLM2,
 };
 
+enum class ResizeMode {
+    PadToSquare,
+    Stretch,
+    CenterCrop,
+};
+
+struct ImagePreprocessProfile {
+    ResizeMode resize_mode;
+    bool rgb;
+    bool normalize_in_host;
+    float pad_r;
+    float pad_g;
+    float pad_b;
+    std::array<float, 3> mean;
+    std::array<float, 3> std;
+};
+
 struct ModelConfig {
     ModelFamily model_family = ModelFamily::QwenVL2;
 
@@ -51,8 +70,14 @@ struct ModelConfig {
 bool parse_model_family(std::string_view value, ModelFamily& family);
 const char* model_family_name(ModelFamily family);
 const char* model_family_image_placeholder(ModelFamily family);
+const ImagePreprocessProfile& model_family_image_preprocess_profile(ModelFamily family);
 bool model_family_uses_vision_encoder(ModelFamily family);
 bool model_family_supports_multimodal(ModelFamily family);
+int preprocess_image_for_vision_encoder(
+    ModelFamily family,
+    const cv::Mat& image_bgr,
+    cv::Size target_size,
+    cv::Mat& output);
 
 class Session {
 public:

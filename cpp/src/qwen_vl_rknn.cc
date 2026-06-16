@@ -1,4 +1,4 @@
-#include <array>
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -6,29 +6,14 @@
 #include <utility>
 #include <vector>
 
+#include <opencv2/imgproc.hpp>
+
 #include "logger.h"
 #include "qwen_vl_rknn.h"
 
 namespace qwen_vl_rknn {
 
 namespace {
-
-enum class ResizeMode {
-    PadToSquare,
-    Stretch,
-    CenterCrop,
-};
-
-struct ImagePreprocessProfile {
-    ResizeMode resize_mode;
-    bool rgb;
-    bool normalize_in_host;
-    float pad_r;
-    float pad_g;
-    float pad_b;
-    std::array<float, 3> mean;
-    std::array<float, 3> std;
-};
 
 struct ModelProfile {
     bool uses_vision_encoder;
@@ -106,6 +91,19 @@ const ModelProfile& model_profile_for(ModelFamily family)
         unused_image_preprocess,
     };
 
+    // TODO: Confirm SmolVLM2 image layout, resize policy, and normalization from
+    // converted RKNN metadata before treating this profile as supported.
+    static constexpr ImagePreprocessProfile smolvlm2_image_preprocess {
+        ResizeMode::PadToSquare,
+        true,
+        false,
+        127.5f,
+        127.5f,
+        127.5f,
+        {0.0f, 0.0f, 0.0f},
+        {1.0f, 1.0f, 1.0f},
+    };
+
     // TODO: Replace these placeholders once converted SmolVLM2 RKLLM tokens are confirmed.
     static constexpr ModelProfile smolvlm2 {
         true,
@@ -114,7 +112,7 @@ const ModelProfile& model_profile_for(ModelFamily family)
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
-        qwen_vl_image_preprocess,
+        smolvlm2_image_preprocess,
     };
 
     switch (family) {
@@ -131,6 +129,36 @@ const ModelProfile& model_profile_for(ModelFamily family)
     }
 
     return qwen2_vl;
+}
+
+cv::Mat pad_to_square(const cv::Mat& image, const cv::Scalar& background_color)
+{
+    const int width = image.cols;
+    const int height = image.rows;
+    if (width == height) {
+        return image.clone();
+    }
+
+    const int size = std::max(width, height);
+    cv::Mat square(size, size, image.type(), background_color);
+    const int x_offset = (size - width) / 2;
+    const int y_offset = (size - height) / 2;
+    image.copyTo(square(cv::Rect(x_offset, y_offset, width, height)));
+    return square;
+}
+
+cv::Mat center_crop_to_aspect(const cv::Mat& image, double target_aspect)
+{
+    const double source_aspect = static_cast<double>(image.cols) / static_cast<double>(image.rows);
+    if (source_aspect > target_aspect) {
+        const int crop_width = static_cast<int>(image.rows * target_aspect);
+        const int x_offset = (image.cols - crop_width) / 2;
+        return image(cv::Rect(x_offset, 0, crop_width, image.rows)).clone();
+    }
+
+    const int crop_height = static_cast<int>(image.cols / target_aspect);
+    const int y_offset = (image.rows - crop_height) / 2;
+    return image(cv::Rect(0, y_offset, image.cols, crop_height)).clone();
 }
 
 }  // namespace
@@ -189,6 +217,11 @@ const char* model_family_image_placeholder(ModelFamily family)
     return model_profile_for(family).image_placeholder;
 }
 
+const ImagePreprocessProfile& model_family_image_preprocess_profile(ModelFamily family)
+{
+    return model_profile_for(family).image_preprocess;
+}
+
 bool model_family_uses_vision_encoder(ModelFamily family)
 {
     return model_profile_for(family).uses_vision_encoder;
@@ -197,6 +230,67 @@ bool model_family_uses_vision_encoder(ModelFamily family)
 bool model_family_supports_multimodal(ModelFamily family)
 {
     return model_profile_for(family).supports_multimodal;
+}
+
+int preprocess_image_for_vision_encoder(
+    ModelFamily family,
+    const cv::Mat& image_bgr,
+    cv::Size target_size,
+    cv::Mat& output)
+{
+    if (image_bgr.empty()) {
+        LOG(ERROR) << "Image input is empty";
+        return -1;
+    }
+    if (target_size.width <= 0 || target_size.height <= 0) {
+        LOG(ERROR) << "Invalid target image size: " << target_size.width << "x" << target_size.height;
+        return -1;
+    }
+
+    const auto& profile = model_family_image_preprocess_profile(family);
+    if (profile.normalize_in_host) {
+        LOG(ERROR) << "Host-side image normalization is not supported by the current uint8 RKNN input path";
+        return -1;
+    }
+
+    cv::Mat color;
+    if (profile.rgb) {
+        if (image_bgr.channels() == 3) {
+            cv::cvtColor(image_bgr, color, cv::COLOR_BGR2RGB);
+        } else if (image_bgr.channels() == 4) {
+            cv::cvtColor(image_bgr, color, cv::COLOR_BGRA2RGB);
+        } else {
+            LOG(ERROR) << "Unsupported image channel count for RGB conversion: " << image_bgr.channels();
+            return -1;
+        }
+    } else {
+        if (image_bgr.channels() != 3) {
+            LOG(ERROR) << "Unsupported image channel count: " << image_bgr.channels();
+            return -1;
+        }
+        color = image_bgr.clone();
+    }
+
+    cv::Mat resized;
+    switch (profile.resize_mode) {
+    case ResizeMode::PadToSquare: {
+        cv::Mat square = pad_to_square(color, cv::Scalar(profile.pad_r, profile.pad_g, profile.pad_b));
+        cv::resize(square, resized, target_size, 0, 0, cv::INTER_LINEAR);
+        break;
+    }
+    case ResizeMode::Stretch:
+        cv::resize(color, resized, target_size, 0, 0, cv::INTER_LINEAR);
+        break;
+    case ResizeMode::CenterCrop: {
+        const double target_aspect = static_cast<double>(target_size.width) / static_cast<double>(target_size.height);
+        cv::Mat cropped = center_crop_to_aspect(color, target_aspect);
+        cv::resize(cropped, resized, target_size, 0, 0, cv::INTER_LINEAR);
+        break;
+    }
+    }
+
+    output = resized.isContinuous() ? resized : resized.clone();
+    return 0;
 }
 
 int Session::init_vision_encoder()

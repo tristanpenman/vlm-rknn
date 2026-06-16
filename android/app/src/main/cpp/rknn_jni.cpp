@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <android/log.h>
+#include <opencv2/imgcodecs.hpp>
 
 #include "qwen_vl_rknn.h"
 
@@ -142,26 +143,22 @@ jint rknnLlm_init(JNIEnv* env, jclass, jstring jencoder_path, jstring jllm_path)
     return ret;
 }
 
-jintArray rknnLlm_getImageInputSize(JNIEnv* env, jclass)
+jint rknnLlm_setImage(JNIEnv* env, jclass, jstring jimage_path)
 {
-    std::lock_guard<std::mutex> lock(g_mutex);
-    if (!g_session || !g_session->is_ready()) {
-        return nullptr;
+    if (jimage_path == nullptr) {
+        LOGE("image path is null");
+        return -1;
     }
-    const auto& encoder = g_session->vision_encoder();
-    jintArray arr = env->NewIntArray(2);
-    if (arr == nullptr) {
-        return nullptr;
-    }
-    jint values[2] = {encoder.model_width, encoder.model_height};
-    env->SetIntArrayRegion(arr, 0, 2, values);
-    return arr;
-}
 
-jint rknnLlm_setImage(JNIEnv* env, jclass, jbyteArray jpixels, jint width, jint height)
-{
-    if (jpixels == nullptr) {
-        LOGE("pixels is null");
+    const char* image_path = env->GetStringUTFChars(jimage_path, nullptr);
+    if (image_path == nullptr) {
+        return -1;
+    }
+
+    cv::Mat image = cv::imread(image_path, cv::IMREAD_COLOR);
+    env->ReleaseStringUTFChars(jimage_path, image_path);
+    if (image.empty()) {
+        LOGE("could not decode image");
         return -1;
     }
 
@@ -172,17 +169,15 @@ jint rknnLlm_setImage(JNIEnv* env, jclass, jbyteArray jpixels, jint width, jint 
     }
 
     const auto& encoder = g_session->vision_encoder();
-    if (width != encoder.model_width || height != encoder.model_height) {
-        LOGE("image dim mismatch: got %dx%d, want %dx%d",
-             width, height, encoder.model_width, encoder.model_height);
-        return -1;
-    }
-
-    const jsize len = env->GetArrayLength(jpixels);
-    const jsize expected = width * height * 3;
-    if (len != expected) {
-        LOGE("pixel buffer size mismatch: got %d, want %d", static_cast<int>(len), static_cast<int>(expected));
-        return -1;
+    cv::Mat preprocessed;
+    jint ret = static_cast<jint>(qwen_vl_rknn::preprocess_image_for_vision_encoder(
+        g_session->config().model_family,
+        image,
+        cv::Size(encoder.model_width, encoder.model_height),
+        preprocessed));
+    if (ret != 0) {
+        LOGE("image preprocessing failed: %d", static_cast<int>(ret));
+        return ret;
     }
 
     const size_t total = static_cast<size_t>(encoder.model_image_token)
@@ -190,15 +185,7 @@ jint rknnLlm_setImage(JNIEnv* env, jclass, jbyteArray jpixels, jint width, jint 
         * static_cast<size_t>(encoder.io_num.n_output);
     g_img_vec.assign(total, 0.0f);
 
-    jbyte* pixels = env->GetByteArrayElements(jpixels, nullptr);
-    if (pixels == nullptr) {
-        g_img_vec.clear();
-        return -1;
-    }
-
-    jint ret = static_cast<jint>(
-        g_session->encode(reinterpret_cast<unsigned char*>(pixels), g_img_vec.data()));
-    env->ReleaseByteArrayElements(jpixels, pixels, JNI_ABORT);
+    ret = static_cast<jint>(g_session->encode(preprocessed.data, g_img_vec.data()));
 
     if (ret != 0) {
         g_img_vec.clear();
@@ -287,8 +274,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*)
 
     const JNINativeMethod methods[] = {
         {"nativeInit", "(Ljava/lang/String;Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlm_init)},
-        {"nativeGetImageInputSize", "()[I", reinterpret_cast<void*>(rknnLlm_getImageInputSize)},
-        {"nativeSetImage", "([BII)I", reinterpret_cast<void*>(rknnLlm_setImage)},
+        {"nativeSetImage", "(Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlm_setImage)},
         {"nativeRun", "(Ljava/lang/String;Lcom/tristanpenman/qwenvlrknn/RknnLlmCallback;)I", reinterpret_cast<void*>(rknnLlm_run)},
         {"nativeCleanup", "()V", reinterpret_cast<void*>(rknnLlm_cleanup)},
     };

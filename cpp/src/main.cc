@@ -20,7 +20,8 @@
 #include <string>
 #include <vector>
 
-#include "cv2_utils.h"
+#include <opencv2/imgcodecs.hpp>
+
 #include "logger.h"
 #include "qwen_vl_rknn.h"
 
@@ -263,29 +264,28 @@ int main(int argc, char** argv)
     }
 
     // Load the image using OpenCV
-    cv::Mat img = cv::imread(*image_path);
+    cv::Mat img = cv::imread(*image_path, cv::IMREAD_COLOR);
     if (img.empty()) {
         LOG(ERROR) << "Could not open or find the image: " << *image_path;
         return -1;
     }
-
-    // The image is read in BGR format, convert to RGB format
-    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
-
-    // Expand the image into a square and fill it with the specified background color
-    cv::Scalar background_color(127.5, 127.5, 127.5);
-    cv::Mat square_img = expand2square(img, background_color);
 
     // Get image dimensions from the model configuration
     const auto& encoder = session.vision_encoder();
     auto image_width = encoder.model_width;
     auto image_height = encoder.model_height;
 
-    // Resize the image
-    LOG(INFO) << "Resizing image to " << image_width << "x" << image_height;
     cv::Mat resized_img;
-    cv::Size new_size(image_width, image_height);
-    cv::resize(square_img, resized_img, new_size, 0, 0, cv::INTER_LINEAR);
+    LOG(INFO) << "Preprocessing image to " << image_width << "x" << image_height;
+    int ret = qwen_vl_rknn::preprocess_image_for_vision_encoder(
+        config.model_family,
+        img,
+        cv::Size(image_width, image_height),
+        resized_img);
+    if (ret != 0) {
+        LOG(ERROR) << "Failed to preprocess image, error=" << ret;
+        return -1;
+    }
 
     // Determine size of the embedding that will be passed to the decoder
     auto n_image_tokens = encoder.model_image_token;
@@ -299,7 +299,7 @@ int main(int argc, char** argv)
     img_vec.resize(rkllm_image_embed_len);
 
     LOG(INFO) << "Running encoder...";
-    int ret = session.encode(resized_img.data, img_vec.data());
+    ret = session.encode(resized_img.data, img_vec.data());
     if (ret != 0) {
         LOG(ERROR) << "Failed to run model, error=" << ret;
         return -1;

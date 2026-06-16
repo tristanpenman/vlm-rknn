@@ -14,7 +14,7 @@ Qwen3-VL should be treated as a distinct model family rather than a drop-in repl
 
    The selected profile should own image special tokens, prompt/chat template rules, image placeholder syntax, preprocessing settings, default context length, and whether thinking mode is supported.
 
-2. Stop hard-coding Qwen2-VL assumptions in `cpp/src/qwen_vl_rknn.cc`.
+2. Stop hard-coding Qwen2-VL assumptions in `cpp/src/vlm_rknn.cc`.
 
    The current RKLLM setup hard-codes:
 
@@ -79,8 +79,8 @@ Qwen3-VL should be treated as a distinct model family rather than a drop-in repl
    Avoid forcing users to remember every model-specific option. Prefer a manifest-based flow:
 
    ```bash
-   qwen-vl-rknn --model models/qwen2-vl-2b/model.json image.png "Describe this"
-   qwen-vl-rknn --model models/qwen3-vl-2b/model.json --thinking image.png "Reason about this"
+   vlm-rknn --model models/qwen2-vl-2b/model.json image.png "Describe this"
+   vlm-rknn --model models/qwen3-vl-2b/model.json --thinking image.png "Reason about this"
    ```
 
    Example manifest:

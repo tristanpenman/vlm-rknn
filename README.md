@@ -163,7 +163,7 @@ Then install the app via Gradle:
 Start the app on your device, or use ADB:
 
 ```bash
-adb shell am start -n  "com.tristanpenman.qwenvlrknn/.MainActivity"
+adb shell am start -n  "com.tristanpenman.vlmrknn/.MainActivity"
 ```
 
 ## Models

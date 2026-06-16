@@ -74,7 +74,7 @@ Tasks:
 - Allow llama invocations such as:
 
 ```bash
-./build-native/qwen-vl-rknn \
+./build-native/vlm-rknn \
   --model-family llama \
   --llm /path/to/llama.rkllm \
   --prompt "Explain RKNN in one paragraph."
@@ -174,7 +174,7 @@ smolvlm2_language.rkllm
 Initial CLI target:
 
 ```bash
-./build-native/qwen-vl-rknn \
+./build-native/vlm-rknn \
   --model-family smolvlm2 \
   --vision /path/to/smolvlm2_vision.rknn \
   --llm /path/to/smolvlm2_language.rkllm \

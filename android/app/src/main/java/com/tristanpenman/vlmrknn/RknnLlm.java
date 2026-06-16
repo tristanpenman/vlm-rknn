@@ -1,10 +1,10 @@
-package com.tristanpenman.qwenvlrknn;
+package com.tristanpenman.vlmrknn;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 /**
- * Thin Java surface over the JNI wrapper around this repo's Qwen-VL RKNN core.
+ * Thin Java surface over the JNI wrapper around this repo's VLM RKNN core.
  *
  * <p>This is a process-wide singleton: only one model pair can be
  * loaded at a time. Call {@link #init} before {@link #run}, then
@@ -14,7 +14,7 @@ import androidx.annotation.Nullable;
  */
 public final class RknnLlm {
   static {
-    System.loadLibrary("qwen-vl-rknn-jni");
+    System.loadLibrary("vlm-rknn-jni");
   }
 
   private RknnLlm() {}

@@ -1,5 +1,5 @@
 <resources>
-  <string name="app_name">Qwen-VL RKNN</string>
+  <string name="app_name">VLM RKNN</string>
 
   <string name="label_encoder_path">Vision encoder model path</string>
   <string name="hint_encoder_path">/data/local/tmp/models/qwen2_vl_2b_vision_rk3588.rknn</string>

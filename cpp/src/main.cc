@@ -23,7 +23,7 @@
 #include <opencv2/imgcodecs.hpp>
 
 #include "logger.h"
-#include "qwen_vl_rknn.h"
+#include "vlm_rknn.h"
 
 namespace {
 
@@ -59,7 +59,7 @@ int main(int argc, char** argv)
     std::optional<int> num_cores;
     std::optional<int> max_new_tokens;
     std::optional<int> max_context_len;
-    std::optional<qwen_vl_rknn::ModelFamily> model_family;
+    std::optional<vlm_rknn::ModelFamily> model_family;
     std::optional<std::string> vision_encoder_path;
     std::optional<std::string> language_model_path;
     std::optional<std::string> image_path;
@@ -91,8 +91,8 @@ int main(int argc, char** argv)
                 LOG(WARNING) << "--model-family option requires one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2";
                 return -1;
             }
-            qwen_vl_rknn::ModelFamily parsed_family;
-            if (!qwen_vl_rknn::parse_model_family(value, parsed_family)) {
+            vlm_rknn::ModelFamily parsed_family;
+            if (!vlm_rknn::parse_model_family(value, parsed_family)) {
                 LOG(WARNING) << "Invalid model family specified: " << value;
                 LOG(WARNING) << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2";
                 return -1;
@@ -168,22 +168,22 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    qwen_vl_rknn::ModelConfig config;
+    vlm_rknn::ModelConfig config;
     config.language_model_path = *language_model_path;
     if (model_family.has_value()) {
         config.model_family = model_family.value();
     }
-    const bool uses_vision_encoder = qwen_vl_rknn::model_family_uses_vision_encoder(config.model_family);
+    const bool uses_vision_encoder = vlm_rknn::model_family_uses_vision_encoder(config.model_family);
     if (uses_vision_encoder) {
         if (!vision_encoder_path.has_value() || vision_encoder_path->empty()) {
             LOG(WARNING) << "Missing required --vision <vision_encoder_path> argument for "
-                         << qwen_vl_rknn::model_family_name(config.model_family);
+                         << vlm_rknn::model_family_name(config.model_family);
             print_usage(argv[0]);
             return 1;
         }
         if (!image_path.has_value() || image_path->empty()) {
             LOG(WARNING) << "Missing required --image <image_path> argument for "
-                         << qwen_vl_rknn::model_family_name(config.model_family);
+                         << vlm_rknn::model_family_name(config.model_family);
             print_usage(argv[0]);
             return 1;
         }
@@ -191,13 +191,13 @@ int main(int argc, char** argv)
     } else {
         if (vision_encoder_path.has_value() && !vision_encoder_path->empty()) {
             LOG(WARNING) << "--vision is not supported for "
-                         << qwen_vl_rknn::model_family_name(config.model_family);
+                         << vlm_rknn::model_family_name(config.model_family);
             print_usage(argv[0]);
             return 1;
         }
         if (image_path.has_value() && !image_path->empty()) {
             LOG(WARNING) << "--image is not supported for "
-                         << qwen_vl_rknn::model_family_name(config.model_family);
+                         << vlm_rknn::model_family_name(config.model_family);
             print_usage(argv[0]);
             return 1;
         }
@@ -212,7 +212,7 @@ int main(int argc, char** argv)
         config.max_context_len = max_context_len.value();
     }
 
-    qwen_vl_rknn::Session session(config);
+    vlm_rknn::Session session(config);
 
     if (session.init() != 0) {
         LOG(ERROR) << "Session initialization failed.";
@@ -277,7 +277,7 @@ int main(int argc, char** argv)
 
     cv::Mat resized_img;
     LOG(INFO) << "Preprocessing image to " << image_width << "x" << image_height;
-    int ret = qwen_vl_rknn::preprocess_image_for_vision_encoder(
+    int ret = vlm_rknn::preprocess_image_for_vision_encoder(
         config.model_family,
         img,
         cv::Size(image_width, image_height),
@@ -306,7 +306,7 @@ int main(int argc, char** argv)
     }
 
     const std::string warmup_prompt =
-        std::string(qwen_vl_rknn::model_family_image_placeholder(config.model_family)) +
+        std::string(vlm_rknn::model_family_image_placeholder(config.model_family)) +
         "What is in the image?";
     LOG(INFO) << "Encoder ran successfully. Warming up decoder with multimodal input...";
     ret = session.decode(warmup_prompt, img_vec.data());

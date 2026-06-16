@@ -1,4 +1,4 @@
-package com.tristanpenman.qwenvlrknn;
+package com.tristanpenman.vlmrknn;
 
 import androidx.annotation.NonNull;
 

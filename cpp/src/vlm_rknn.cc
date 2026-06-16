@@ -10,10 +10,10 @@
 #include <opencv2/imgproc.hpp>
 
 #include "logger.h"
-#include "qwen_vl_rknn.h"
+#include "vlm_rknn.h"
 #include "rknn_utils.h"
 
-namespace qwen_vl_rknn {
+namespace vlm_rknn {
 
 namespace {
 
@@ -558,8 +558,8 @@ std::string Session::describe() const
     const auto& profile = model_profile_for(config_.model_family);
 
     std::ostringstream stream;
-    stream << "Qwen-VL RKNN session";
-    stream << " target=" << QWEN_VL_RKNN_TARGET;
+    stream << "VLM RKNN session";
+    stream << " target=" << VLM_RKNN_TARGET;
     stream << " model_family=" << model_family_name(config_.model_family);
     stream << " requires_vision_encoder=" << (profile.uses_vision_encoder ? "yes" : "no");
     stream << " vision_encoder_path=" << (config_.vision_encoder_path.has_value() && !config_.vision_encoder_path->empty() ? *config_.vision_encoder_path : "<unset>");
@@ -773,4 +773,4 @@ int Session::callback(RKLLMResult *result, void *userdata, LLMCallState state)
     return 0;
 }
 
-}  // namespace qwen_vl_rknn
+}  // namespace vlm_rknn

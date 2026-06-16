@@ -1,8 +1,17 @@
-# Qwen-VL RKNN
+# VLM RKNN
 
-This repo contains a starter CMake project for running Qwen-VL style multimodal models on Rockchip devices via RKNN/RKLLM.
+This repo contains a starter CMake project for running Qwen-VL style vision-language models on Rockchip devices via RKNN/RKLLM.
 
-The layout is modeled after my [Marian RKNN](https://github.com/tristanpenman/marian-rknn) implementation and is intentionally small while the model runtime is being brought up.
+Currently supports the following models:
+
+* Qwen-VL2
+* SmolVLM2
+
+Others are in development:
+
+* Llama
+* Qwen-VL2.5
+* Qwen-VL3
 
 ### Contents
 
@@ -13,6 +22,7 @@ The layout is modeled after my [Marian RKNN](https://github.com/tristanpenman/ma
   * [Layout](#layout)
   * [Dependencies](#dependencies)
 * [Linux CLI](#linux-cli)
+  * [CMake Configuration](#cmake-configuration)
 * [Android 14](#android-14)
   * [Test Frontend](#test-frontend)
   * [APK Installation](#apk-installation)
@@ -24,11 +34,11 @@ The layout is modeled after my [Marian RKNN](https://github.com/tristanpenman/ma
 
 ## Background
 
-A Qwen-VL model is a vision-language model from Alibaba’s Qwen family.
+VLM is short for "Vision-Language Model". This refers to a model that accepts input in the form of images, text, and sometimes video. This makes the model _multimodal_. Although a range of inputs are accepted, the output will generally be text.
 
-VL is short for "Vision-Language". What this means is that input to the model can be in the form of images, text, and sometimes video. However the output will always be text.
+Common applications include describing or answering questions about images, reading text in screenshots or documents, and parsing graphical user interfaces.
 
-Immediate applications include describing or answering questions about images, reading text in screenshots or documents, and parsing graphical user interfaces.
+This project was originally built around QwenVL models, and later expanded to include SmolVLM and Llama models.
 
 ### Qwen
 
@@ -46,18 +56,15 @@ Qwen-VL extends Qwen with a vision encoder, producing a multimodal model that ta
 | Qwen2.5-VL | Stronger newer generation                         |
 | Qwen3-VL   | Later generation with further multimodal upgrades |
 
-This repo runs Qwen-VL on Rockchip NPUs, with the language model executed via RKLLM and the vision encoder via RKNN. It aims to provide full support for Qwen2, Qwen2.5 and Qwen3 models.
-
 ## Project Structure
 
 This project targets Rockchip Linux and Android devices based on the Rockchip RK3588. CMake is used for both platforms.
 
 ### Layout
 
-- `cmake/` - CMake helper modules (e.g. third-party fetch configuration).
 - `android/` - Gradle Android test frontend and app module.
-- `cpp/src/` - C++ library sources and CLI entry point.
-- `cpp/tests/` - CTest-based executable tests.
+- `cmake/` - CMake helper modules (e.g. third-party fetch configuration).
+- `cpp/` - C++ library sources and CLI entry point.
 - `scripts/` - Linux and Android build helper scripts.
 - `thirdparty/` - Bundled RKNN and RKLLM headers and prebuilt runtime libraries.
 - `CMakeLists.txt` - CMake build configuration.
@@ -74,13 +81,19 @@ OpenCV is being integrated as a fetched third-party dependency for image loading
 To build the CLI for Linux, use the `build-native.sh` wrapper script:
 
 ```bash
-docker compose run --rm native ./scripts/build-native.sh Release
+./scripts/build-native.sh docker
+```
+
+Once built, copy the binary to your device, along with the required RKNN library files.
+
+```bash
+scp build-native/vlm-rknn <ip>:<path>
 ```
 
 Run the CLI with named model and input arguments:
 
 ```bash
-./build-native/qwen-vl-rknn \
+./vlm-rknn \
   --model-family qwen2-vl \
   --vision /path/to/qwen2_vl_vision.rknn \
   --llm /path/to/Qwen2-VL-Instruct.rkllm \
@@ -88,9 +101,11 @@ Run the CLI with named model and input arguments:
   --prompt "<image>What is in the image?"
 ```
 
-Omit `--prompt` to start the interactive REPL after the model and image are loaded.
+For this example, you will need to download `qwen2_vl_vision.rknn` and `Qwen2-VL-Instruct.rkllm`. See the [Models](#models) section below for details.
 
-The RKNN and RKLLM headers and runtime libraries are expected under `thirdparty/rknpu2` and `thirdparty/rkllm` respectively.
+### CMake Configuration
+
+RKNN and RKLLM headers and runtime libraries can be found under `thirdparty/rknpu2` and `thirdparty/rkllm` respectively.
 
 Override the defaults using one or more of the following when invoking CMake:
 * `-DRKNN_INCLUDE_DIR`
@@ -109,7 +124,7 @@ OpenCV sample projects are disabled by default. The default OpenCV image codec c
 To build the CLI for Android 14, use the `build-android.sh` wrapper script:
 
 ```bash
-docker compose run --rm android ./scripts/build-android.sh Release
+./scripts/build-android.sh docker
 ```
 
 The Android helper expects the NDK from the Android container or an `ANDROID_NDK_HOME` path supplied by the caller.

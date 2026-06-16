@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
-project(qwen-vl-rknn VERSION 0.1.0 LANGUAGES C CXX)
+project(vlm-rknn VERSION 0.1.0 LANGUAGES C CXX)
 
 set(COPYRIGHT "Copyright (c) 2026 Tristan Penman")
-set(IDENTIFIER "com.tristanpenman.qwen-vl-rknn")
+set(IDENTIFIER "com.tristanpenman.vlm-rknn")
 
 # Force out-of-source builds
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
@@ -28,22 +28,22 @@ endif()
 # build config
 # -----------------------------------------------------------------------------
 
-option(QWEN_VL_RKNN_ENABLE_OPENCV "Fetch and link OpenCV as a third-party dependency" ON)
+option(VLM_RKNN_ENABLE_OPENCV "Fetch and link OpenCV as a third-party dependency" ON)
 
-set(QWEN_VL_RKNN_TARGET "rk3588" CACHE STRING "Rockchip target device family")
+set(VLM_RKNN_TARGET "rk3588" CACHE STRING "Rockchip target device family")
 
 if(ANDROID)
-    set(QWEN_VL_RKNN_ARCH ${CMAKE_ANDROID_ARCH_ABI})
+    set(VLM_RKNN_ARCH ${CMAKE_ANDROID_ARCH_ABI})
     set(DEFAULT_RKNN_RUNTIME_LIB
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/lib-android/${QWEN_VL_RKNN_ARCH}/librknnrt.so)
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/lib-android/${VLM_RKNN_ARCH}/librknnrt.so)
     set(DEFAULT_RKLLM_RUNTIME_LIB
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/lib-android/${QWEN_VL_RKNN_ARCH}/librkllmrt.so)
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/lib-android/${VLM_RKNN_ARCH}/librkllmrt.so)
 else()
-    set(QWEN_VL_RKNN_ARCH aarch64)
+    set(VLM_RKNN_ARCH aarch64)
     set(DEFAULT_RKNN_RUNTIME_LIB
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/lib/${QWEN_VL_RKNN_ARCH}/librknnrt.so)
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/lib/${VLM_RKNN_ARCH}/librknnrt.so)
     set(DEFAULT_RKLLM_RUNTIME_LIB
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/lib/${QWEN_VL_RKNN_ARCH}/librkllmrt.so)
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/lib/${VLM_RKNN_ARCH}/librkllmrt.so)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -92,60 +92,60 @@ endif()
 # OpenCV
 # -----------------------------------------------------------------------------
 
-if(QWEN_VL_RKNN_ENABLE_OPENCV)
+if(VLM_RKNN_ENABLE_OPENCV)
     include(cmake/thirdparty/OpenCV.cmake)
 endif()
 
 # -----------------------------------------------------------------------------
-# qwen_vl_rknn_core
+# vlm_rknn_core
 # -----------------------------------------------------------------------------
 
-add_library(qwen_vl_rknn_core STATIC
+add_library(vlm_rknn_core STATIC
     cpp/src/cv2_utils.cc
     cpp/src/logger.cc
-    cpp/src/qwen_vl_rknn.cc
     cpp/src/rknn_utils.cc
+    cpp/src/vlm_rknn.cc
 )
 
-add_library(qwen-vl-rknn::core ALIAS qwen_vl_rknn_core)
+add_library(vlm-rknn::core ALIAS vlm_rknn_core)
 
-target_include_directories(qwen_vl_rknn_core PUBLIC
+target_include_directories(vlm_rknn_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp/src
 )
 
-target_compile_definitions(qwen_vl_rknn_core PUBLIC
-    QWEN_VL_RKNN_TARGET="${QWEN_VL_RKNN_TARGET}"
+target_compile_definitions(vlm_rknn_core PUBLIC
+    VLM_RKNN_TARGET="${VLM_RKNN_TARGET}"
 )
 
-target_include_directories(qwen_vl_rknn_core PUBLIC
+target_include_directories(vlm_rknn_core PUBLIC
     ${RKNN_INCLUDE_DIR}
     ${RKLLM_INCLUDE_DIR}
-    ${QWEN_VL_RKNN_OPENCV_INCLUDE_DIRS}
+    ${VLM_RKNN_OPENCV_INCLUDE_DIRS}
 )
 
-target_link_libraries(qwen_vl_rknn_core PUBLIC
+target_link_libraries(vlm_rknn_core PUBLIC
     ${RKNN_RUNTIME_LIB}
     ${RKLLM_RUNTIME_LIB}
-    ${QWEN_VL_RKNN_OPENCV_TARGETS}
+    ${VLM_RKNN_OPENCV_TARGETS}
 )
 
 # -----------------------------------------------------------------------------
-# qwen-vl-rknn
+# vlm-rknn
 # -----------------------------------------------------------------------------
 
-add_executable(qwen-vl-rknn
+add_executable(vlm-rknn
     cpp/src/main.cc
 )
 
 # OpenCV's CMake sets CMAKE_RUNTIME_OUTPUT_DIRECTORY to <build>/bin
-set_target_properties(qwen-vl-rknn PROPERTIES
+set_target_properties(vlm-rknn PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 
-target_link_libraries(qwen-vl-rknn PRIVATE qwen-vl-rknn::core)
+target_link_libraries(vlm-rknn PRIVATE vlm-rknn::core)
 
 # Strip debug symbols from release builds
-target_link_options(${PROJECT_NAME} PRIVATE
+target_link_options(vlm-rknn PRIVATE
     $<$<CONFIG:Release>:-Wl,--strip-all>
 )
 
@@ -155,15 +155,15 @@ target_link_options(${PROJECT_NAME} PRIVATE
 
 include(CTest)
 if(BUILD_TESTING AND NOT ANDROID)
-    add_executable(qwen-vl-rknn-tests
-        cpp/tests/qwen_vl_rknn_test.cc
+    add_executable(vlm-rknn-tests
+        cpp/tests/vlm_rknn_test.cc
     )
-    target_link_libraries(qwen-vl-rknn-tests PRIVATE qwen-vl-rknn::core)
-    add_test(NAME qwen-vl-rknn COMMAND qwen-vl-rknn-tests)
+    target_link_libraries(vlm-rknn-tests PRIVATE vlm-rknn::core)
+    add_test(NAME vlm-rknn COMMAND vlm-rknn-tests)
 endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Generator: ${CMAKE_GENERATOR} (multi-config: ${is_multi_config})")
-message(STATUS "Rockchip target: ${QWEN_VL_RKNN_TARGET}")
-message(STATUS "OpenCV enabled: ${QWEN_VL_RKNN_ENABLE_OPENCV}")
+message(STATUS "Rockchip target: ${VLM_RKNN_TARGET}")
+message(STATUS "OpenCV enabled: ${VLM_RKNN_ENABLE_OPENCV}")
 message(STATUS "RKNN runtime library: ${RKNN_RUNTIME_LIB}")

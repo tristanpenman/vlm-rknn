@@ -1,4 +1,4 @@
-package com.tristanpenman.qwenvlrknn;
+package com.tristanpenman.vlmrknn;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;

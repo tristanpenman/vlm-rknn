@@ -10,7 +10,7 @@
 #include <rknn_api.h>
 #include <rkllm.h>
 
-namespace qwen_vl_rknn {
+namespace vlm_rknn {
 
 struct TextDecoder {
     LLMHandle handle = nullptr;
@@ -129,4 +129,4 @@ private:
     OutputCallback output_callback_;
 };
 
-}  // namespace qwen_vl_rknn
+}  // namespace vlm_rknn

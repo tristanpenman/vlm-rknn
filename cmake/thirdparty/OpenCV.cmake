@@ -1,20 +1,20 @@
 # OpenCV third-party dependency configuration.
 #
 # This intentionally keeps the fetched OpenCV build small for the first
-# integration step. Add modules to QWEN_VL_RKNN_OPENCV_MODULES as the runtime
+# integration step. Add modules to VLM_RKNN_OPENCV_MODULES as the runtime
 # starts using more image/video functionality.
 
-set(QWEN_VL_RKNN_OPENCV_GIT_TAG "4.13.0" CACHE STRING
-    "OpenCV git tag, branch, or commit fetched when QWEN_VL_RKNN_ENABLE_OPENCV is ON")
-set(QWEN_VL_RKNN_OPENCV_MODULES "core,imgproc,imgcodecs" CACHE STRING
+set(VLM_RKNN_OPENCV_GIT_TAG "4.13.0" CACHE STRING
+    "OpenCV git tag, branch, or commit fetched when VLM_RKNN_ENABLE_OPENCV is ON")
+set(VLM_RKNN_OPENCV_MODULES "core,imgproc,imgcodecs" CACHE STRING
     "Comma-separated OpenCV modules to build via FetchContent")
 
 # We don't want to build OpenCV samples by default
-option(QWEN_VL_RKNN_OPENCV_BUILD_SAMPLES "Build OpenCV sample projects" OFF)
+option(VLM_RKNN_OPENCV_BUILD_SAMPLES "Build OpenCV sample projects" OFF)
 
 # Keep OpenCV focused on embeddable C++ libraries for Rockchip Linux/Android
 # targets. These cache entries are consumed by OpenCV's own CMake project.
-set(BUILD_LIST "${QWEN_VL_RKNN_OPENCV_MODULES}" CACHE STRING "OpenCV modules to build" FORCE)
+set(BUILD_LIST "${VLM_RKNN_OPENCV_MODULES}" CACHE STRING "OpenCV modules to build" FORCE)
 set(BUILD_opencv_apps OFF CACHE BOOL "Build OpenCV command-line applications" FORCE)
 set(BUILD_opencv_js OFF CACHE BOOL "Build OpenCV.js bindings" FORCE)
 set(BUILD_JAVA OFF CACHE BOOL "Build OpenCV Java bindings" FORCE)
@@ -23,10 +23,10 @@ set(BUILD_opencv_python2 OFF CACHE BOOL "Build OpenCV Python 2 bindings" FORCE)
 set(BUILD_opencv_python3 OFF CACHE BOOL "Build OpenCV Python 3 bindings" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "Build OpenCV tests" FORCE)
 set(BUILD_PERF_TESTS OFF CACHE BOOL "Build OpenCV performance tests" FORCE)
-set(BUILD_EXAMPLES ${QWEN_VL_RKNN_OPENCV_BUILD_SAMPLES} CACHE BOOL "Build OpenCV examples" FORCE)
-set(BUILD_ANDROID_EXAMPLES ${QWEN_VL_RKNN_OPENCV_BUILD_SAMPLES} CACHE BOOL "Build OpenCV Android examples" FORCE)
-set(BUILD_ANDROID_PROJECTS ${QWEN_VL_RKNN_OPENCV_BUILD_SAMPLES} CACHE BOOL "Build OpenCV Android projects" FORCE)
-set(INSTALL_ANDROID_EXAMPLES ${QWEN_VL_RKNN_OPENCV_BUILD_SAMPLES} CACHE BOOL "Install OpenCV Android examples" FORCE)
+set(BUILD_EXAMPLES ${VLM_RKNN_OPENCV_BUILD_SAMPLES} CACHE BOOL "Build OpenCV examples" FORCE)
+set(BUILD_ANDROID_EXAMPLES ${VLM_RKNN_OPENCV_BUILD_SAMPLES} CACHE BOOL "Build OpenCV Android examples" FORCE)
+set(BUILD_ANDROID_PROJECTS ${VLM_RKNN_OPENCV_BUILD_SAMPLES} CACHE BOOL "Build OpenCV Android projects" FORCE)
+set(INSTALL_ANDROID_EXAMPLES ${VLM_RKNN_OPENCV_BUILD_SAMPLES} CACHE BOOL "Install OpenCV Android examples" FORCE)
 set(BUILD_DOCS OFF CACHE BOOL "Build OpenCV documentation" FORCE)
 set(OPENCV_ENABLE_NONFREE OFF CACHE BOOL "Enable OpenCV non-free algorithms" FORCE)
 
@@ -76,7 +76,7 @@ set(WITH_OPENCL OFF CACHE BOOL "Use OpenCL" FORCE)
 FetchContent_Declare(
     opencv
     GIT_REPOSITORY https://github.com/opencv/opencv.git
-    GIT_TAG ${QWEN_VL_RKNN_OPENCV_GIT_TAG}
+    GIT_TAG ${VLM_RKNN_OPENCV_GIT_TAG}
     GIT_SHALLOW TRUE
     GIT_PROGRESS TRUE
 )
@@ -86,7 +86,7 @@ FetchContent_MakeAvailable(opencv)
 # OpenCV's in-tree consumption (via add_subdirectory) does not set
 # INTERFACE_INCLUDE_DIRECTORIES on the module targets, so downstream consumers
 # need the public header directories wired up explicitly.
-set(QWEN_VL_RKNN_OPENCV_INCLUDE_DIRS
+set(VLM_RKNN_OPENCV_INCLUDE_DIRS
     "${opencv_SOURCE_DIR}/include"
     "${opencv_SOURCE_DIR}/modules/core/include"
     "${opencv_SOURCE_DIR}/modules/imgproc/include"
@@ -94,7 +94,7 @@ set(QWEN_VL_RKNN_OPENCV_INCLUDE_DIRS
     "${CMAKE_BINARY_DIR}"
 )
 
-set(QWEN_VL_RKNN_OPENCV_TARGETS
+set(VLM_RKNN_OPENCV_TARGETS
     opencv_core
     opencv_imgproc
     opencv_imgcodecs

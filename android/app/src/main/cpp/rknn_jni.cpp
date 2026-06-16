@@ -11,16 +11,16 @@
 #include <android/log.h>
 #include <opencv2/imgcodecs.hpp>
 
-#include "qwen_vl_rknn.h"
+#include "vlm_rknn.h"
 #include "rknn_utils.h"
 
-#define LOG_TAG "qwen-vl-rknn-jni"
+#define LOG_TAG "vlm-rknn-jni"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 namespace {
 
 std::mutex g_mutex;
-std::unique_ptr<qwen_vl_rknn::Session> g_session;
+std::unique_ptr<vlm_rknn::Session> g_session;
 std::vector<float> g_img_vec;
 bool g_has_image = false;
 
@@ -72,7 +72,7 @@ bool resolve_callback_methods(JNIEnv* env, jobject callback, JniCallbackContext*
     return true;
 }
 
-qwen_vl_rknn::ModelFamily infer_model_family(const char* encoder_path, const char* llm_path)
+vlm_rknn::ModelFamily infer_model_family(const char* encoder_path, const char* llm_path)
 {
     std::string combined;
     if (encoder_path != nullptr) {
@@ -89,10 +89,10 @@ qwen_vl_rknn::ModelFamily infer_model_family(const char* encoder_path, const cha
     if (combined.find("smolvlm2") != std::string::npos ||
         combined.find("smol-vlm2") != std::string::npos ||
         combined.find("smol_vlm2") != std::string::npos) {
-        return qwen_vl_rknn::ModelFamily::SmolVLM2;
+        return vlm_rknn::ModelFamily::SmolVLM2;
     }
 
-    return qwen_vl_rknn::ModelFamily::QwenVL2;
+    return vlm_rknn::ModelFamily::QwenVL2;
 }
 
 void dispatch_callback(const char* text, LLMCallState state, JniCallbackContext* ctx)
@@ -147,7 +147,7 @@ jint rknnLlm_init(JNIEnv* env, jclass, jstring jencoder_path, jstring jllm_path)
         return -1;
     }
 
-    qwen_vl_rknn::ModelConfig config;
+    vlm_rknn::ModelConfig config;
     config.model_family = infer_model_family(encoder_path, llm_path);
     config.vision_encoder_path = encoder_path;
     config.language_model_path = llm_path;
@@ -155,7 +155,7 @@ jint rknnLlm_init(JNIEnv* env, jclass, jstring jencoder_path, jstring jllm_path)
     config.max_context_len = 4096;
     config.num_cores = 3;
 
-    auto session = std::make_unique<qwen_vl_rknn::Session>(std::move(config));
+    auto session = std::make_unique<vlm_rknn::Session>(std::move(config));
     jint ret = static_cast<jint>(session->init());
 
     env->ReleaseStringUTFChars(jllm_path, llm_path);
@@ -197,7 +197,7 @@ jint rknnLlm_setImage(JNIEnv* env, jclass, jstring jimage_path)
 
     const auto& encoder = g_session->vision_encoder();
     cv::Mat preprocessed;
-    jint ret = static_cast<jint>(qwen_vl_rknn::preprocess_image_for_vision_encoder(
+    jint ret = static_cast<jint>(vlm_rknn::preprocess_image_for_vision_encoder(
         g_session->config().model_family,
         image,
         cv::Size(encoder.model_width, encoder.model_height),
@@ -297,7 +297,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*)
         return JNI_ERR;
     }
 
-    jclass cls = env->FindClass("com/tristanpenman/qwenvlrknn/RknnLlm");
+    jclass cls = env->FindClass("com/tristanpenman/vlmrknn/RknnLlm");
     if (cls == nullptr) {
         LOGE("could not find RknnLlm class");
         return JNI_ERR;
@@ -306,7 +306,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*)
     const JNINativeMethod methods[] = {
         {"nativeInit", "(Ljava/lang/String;Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlm_init)},
         {"nativeSetImage", "(Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlm_setImage)},
-        {"nativeRun", "(Ljava/lang/String;Lcom/tristanpenman/qwenvlrknn/RknnLlmCallback;)I", reinterpret_cast<void*>(rknnLlm_run)},
+        {"nativeRun", "(Ljava/lang/String;Lcom/tristanpenman/vlmrknn/RknnLlmCallback;)I", reinterpret_cast<void*>(rknnLlm_run)},
         {"nativeCleanup", "()V", reinterpret_cast<void*>(rknnLlm_cleanup)},
     };
 

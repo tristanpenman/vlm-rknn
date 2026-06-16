@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(qwen-vl-rknn-android)
+project(vlm-rknn-android)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -42,19 +42,20 @@ include_directories(
     "${REPO_ROOT}/cpp/src"
     "${RKLLM_INCLUDE_DIR}"
     "${RKNN_INCLUDE_DIR}"
-    ${QWEN_VL_RKNN_OPENCV_INCLUDE_DIRS})
+    ${VLM_RKNN_OPENCV_INCLUDE_DIRS})
 
-add_library(qwen-vl-rknn-jni SHARED
+add_library(vlm-rknn-jni SHARED
     rknn_jni.cpp
+    "${REPO_ROOT}/cpp/src/cv2_utils.cc"
     "${REPO_ROOT}/cpp/src/logger.cc"
-    "${REPO_ROOT}/cpp/src/qwen_vl_rknn.cc"
+    "${REPO_ROOT}/cpp/src/vlm_rknn.cc"
     "${REPO_ROOT}/cpp/src/rknn_utils.cc")
 
-target_compile_definitions(qwen-vl-rknn-jni PRIVATE
-    QWEN_VL_RKNN_TARGET="rk3588")
+target_compile_definitions(vlm-rknn-jni PRIVATE
+    VLM_RKNN_TARGET="rk3588")
 
-target_link_libraries(qwen-vl-rknn-jni
+target_link_libraries(vlm-rknn-jni
     "${RKLLM_RUNTIME_LIB}"
     "${RKNN_RUNTIME_LIB}"
-    ${QWEN_VL_RKNN_OPENCV_TARGETS}
+    ${VLM_RKNN_OPENCV_TARGETS}
     log)

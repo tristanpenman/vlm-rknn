@@ -1,9 +1,11 @@
 #include "rknn_utils.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -108,6 +110,29 @@ const char* rknn_error_message(int ret)
     default:
         return "Unknown RKNN error code";
     }
+}
+
+std::string tensor_attr_to_string(const rknn_tensor_attr& attr)
+{
+    std::ostringstream stream;
+    stream << "index=" << attr.index
+           << " name=" << attr.name
+           << " n_dims=" << attr.n_dims
+           << " dims=[";
+    for (uint32_t i = 0; i < attr.n_dims && i < RKNN_MAX_DIMS; ++i) {
+        if (i > 0) {
+            stream << ", ";
+        }
+        stream << attr.dims[i];
+    }
+    stream << "] n_elems=" << attr.n_elems
+           << " size=" << attr.size
+           << " fmt=" << get_format_string(attr.fmt)
+           << " type=" << get_type_string(attr.type)
+           << " qnt_type=" << get_qnt_type_string(attr.qnt_type)
+           << " zp=" << attr.zp
+           << " scale=" << attr.scale;
+    return stream.str();
 }
 
 void log_rknn_version(rknn_context ctx)

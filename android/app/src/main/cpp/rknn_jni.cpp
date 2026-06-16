@@ -10,6 +10,7 @@
 #include <opencv2/imgcodecs.hpp>
 
 #include "qwen_vl_rknn.h"
+#include "rknn_utils.h"
 
 #define LOG_TAG "qwen-vl-rknn-jni"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)

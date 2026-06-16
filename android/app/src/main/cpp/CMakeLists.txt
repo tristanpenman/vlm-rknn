@@ -47,7 +47,8 @@ include_directories(
 add_library(qwen-vl-rknn-jni SHARED
     rknn_jni.cpp
     "${REPO_ROOT}/cpp/src/logger.cc"
-    "${REPO_ROOT}/cpp/src/qwen_vl_rknn.cc")
+    "${REPO_ROOT}/cpp/src/qwen_vl_rknn.cc"
+    "${REPO_ROOT}/cpp/src/rknn_utils.cc")
 
 target_compile_definitions(qwen-vl-rknn-jni PRIVATE
     QWEN_VL_RKNN_TARGET="rk3588")

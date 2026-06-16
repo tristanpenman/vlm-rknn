@@ -104,6 +104,7 @@ add_library(qwen_vl_rknn_core STATIC
     cpp/src/cv2_utils.cc
     cpp/src/logger.cc
     cpp/src/qwen_vl_rknn.cc
+    cpp/src/rknn_utils.cc
 )
 
 add_library(qwen-vl-rknn::core ALIAS qwen_vl_rknn_core)

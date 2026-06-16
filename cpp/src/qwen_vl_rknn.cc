@@ -420,6 +420,8 @@ int Session::init_text_decoder()
         return -1;
     }
 
+    log_rkllm_version();
+
     return 0;
 }
 

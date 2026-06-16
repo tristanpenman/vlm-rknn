@@ -74,7 +74,7 @@ int main()
     const auto& smol_preprocess =
         qwen_vl_rknn::model_family_image_preprocess_profile(qwen_vl_rknn::ModelFamily::SmolVLM2);
     expect(smol_preprocess.resize_mode == qwen_vl_rknn::ResizeMode::PadToSquare,
-           "SmolVLM2 experimental profile should have an explicit resize mode");
+           "SmolVLM2 profile should have an explicit resize mode");
 
     cv::Mat bgr_pixel(1, 1, CV_8UC3, cv::Scalar(10, 20, 30));
     cv::Mat preprocessed_pixel;

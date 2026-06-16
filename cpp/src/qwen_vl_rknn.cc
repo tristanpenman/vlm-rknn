@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -19,6 +20,8 @@ namespace {
 struct ModelProfile {
     bool uses_vision_encoder;
     bool supports_multimodal;
+    int32_t base_domain_id;
+    bool use_chat_template;
     const char* image_placeholder;
     const char* img_start;
     const char* img_end;
@@ -53,6 +56,8 @@ const ModelProfile& model_profile_for(ModelFamily family)
     static constexpr ModelProfile qwen2_vl {
         true,
         true,
+        0,
+        false,
         "<image>",
         "<|vision_start|>",
         "<|vision_end|>",
@@ -64,6 +69,8 @@ const ModelProfile& model_profile_for(ModelFamily family)
     static constexpr ModelProfile qwen2_5_vl {
         true,
         true,
+        0,
+        false,
         "<image>",
         "<|vision_start|>",
         "<|vision_end|>",
@@ -75,6 +82,8 @@ const ModelProfile& model_profile_for(ModelFamily family)
     static constexpr ModelProfile qwen3_vl {
         true,
         true,
+        0,
+        false,
         "<image>",
         "<|vision_start|>",
         "<|vision_end|>",
@@ -85,6 +94,8 @@ const ModelProfile& model_profile_for(ModelFamily family)
     static constexpr ModelProfile llama {
         false,
         false,
+        0,
+        false,
         "",
         "",
         "",
@@ -92,8 +103,6 @@ const ModelProfile& model_profile_for(ModelFamily family)
         unused_image_preprocess,
     };
 
-    // TODO: Confirm SmolVLM2 image layout, resize policy, and normalization from
-    // converted RKNN metadata before treating this profile as supported.
     static constexpr ImagePreprocessProfile smolvlm2_image_preprocess {
         ResizeMode::PadToSquare,
         true,
@@ -105,9 +114,12 @@ const ModelProfile& model_profile_for(ModelFamily family)
         {1.0f, 1.0f, 1.0f},
     };
 
-    // TODO: Replace these placeholders once converted SmolVLM2 RKLLM tokens are confirmed.
+    // The SmolVLM2-256M-NPU reference currently uses the same RKLLM multimodal
+    // marker strings as the Qwen-VL path.
     static constexpr ModelProfile smolvlm2 {
         true,
+        true,
+        1,
         true,
         "<image>",
         "<|vision_start|>",
@@ -130,6 +142,21 @@ const ModelProfile& model_profile_for(ModelFamily family)
     }
 
     return qwen2_vl;
+}
+
+bool infer_embedding_shape_from_attr(
+    const rknn_tensor_attr& attr,
+    int& image_tokens,
+    int& embed_size)
+{
+    for (uint32_t i = 0; i + 1 < attr.n_dims && i + 1 < RKNN_MAX_DIMS; ++i) {
+        if (attr.dims[i] > 1 && attr.dims[i + 1] > 1) {
+            image_tokens = attr.dims[i];
+            embed_size = attr.dims[i + 1];
+            return true;
+        }
+    }
+    return false;
 }
 
 cv::Mat pad_to_square(const cv::Mat& image, const cv::Scalar& background_color)
@@ -340,6 +367,10 @@ int Session::init_vision_encoder()
                    << " n_output=" << encoder_.io_num.n_output;
         return -1;
     }
+    if (Logger::verbose()) {
+        LOG(VERBOSE) << "RKNN model I/O count: inputs=" << encoder_.io_num.n_input
+                     << " outputs=" << encoder_.io_num.n_output;
+    }
 
     encoder_.input_attrs = static_cast<rknn_tensor_attr*>(calloc(
         encoder_.io_num.n_input,
@@ -365,6 +396,9 @@ int Session::init_vision_encoder()
                        << ", error=" << rknn_error_message(ret);
             return -1;
         }
+        if (Logger::verbose()) {
+            LOG(VERBOSE) << "RKNN input tensor: " << tensor_attr_to_string(encoder_.input_attrs[i]);
+        }
     }
 
     for (auto i = 0; i < encoder_.io_num.n_output; ++i) {
@@ -375,14 +409,17 @@ int Session::init_vision_encoder()
                        << ", error=" << rknn_error_message(ret);
             return -1;
         }
+        if (Logger::verbose()) {
+            LOG(VERBOSE) << "RKNN output tensor: " << tensor_attr_to_string(encoder_.output_attrs[i]);
+        }
     }
 
-    for (int i = 0; i < 4; i++) {
-        if (encoder_.output_attrs[0].dims[i] > 1) {
-            encoder_.model_image_token = encoder_.output_attrs[0].dims[i];
-            encoder_.model_embed_size = encoder_.output_attrs[0].dims[i + 1];
-            break;
-        }
+    if (!infer_embedding_shape_from_attr(
+            encoder_.output_attrs[0],
+            encoder_.model_image_token,
+            encoder_.model_embed_size)) {
+        LOG(ERROR) << "Could not infer image token and embedding dimensions from first RKNN output tensor";
+        return -1;
     }
 
     if (encoder_.input_attrs[0].fmt == RKNN_TENSOR_NCHW) {
@@ -393,6 +430,14 @@ int Session::init_vision_encoder()
         encoder_.model_height = encoder_.input_attrs[0].dims[1];
         encoder_.model_width = encoder_.input_attrs[0].dims[2];
         encoder_.model_channel = encoder_.input_attrs[0].dims[3];
+    }
+    if (Logger::verbose()) {
+        LOG(VERBOSE) << "RKNN vision input shape: height=" << encoder_.model_height
+                     << " width=" << encoder_.model_width
+                     << " channel=" << encoder_.model_channel;
+        LOG(VERBOSE) << "RKNN image embedding shape: tokens=" << encoder_.model_image_token
+                     << " embed_size=" << encoder_.model_embed_size
+                     << " output_tensors=" << encoder_.io_num.n_output;
     }
 
     // Save context for later use
@@ -411,6 +456,7 @@ int Session::init_text_decoder()
     params.max_new_tokens = config_.max_new_tokens;
     params.max_context_len = config_.max_context_len;
     params.skip_special_token = true;
+    params.extend_param.base_domain_id = profile.base_domain_id;
     params.img_start = profile.img_start;
     params.img_end = profile.img_end;
     params.img_content = profile.img_content;
@@ -420,6 +466,18 @@ int Session::init_text_decoder()
     if (ret != 0) {
         LOG(ERROR) << "Failed to initialize RKLLM, error=" << ret;
         return -1;
+    }
+
+    if (profile.use_chat_template) {
+        ret = rkllm_set_chat_template(
+            decoder_.handle,
+            "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n",
+            "<|im_start|>user\n",
+            "<|im_end|>\n<|im_start|>assistant\n");
+        if (ret != 0) {
+            LOG(ERROR) << "Failed to set RKLLM chat template, error=" << ret;
+            return -1;
+        }
     }
 
     log_rkllm_version();
@@ -580,18 +638,53 @@ int Session::encode(void* img_data, float* out_result)
         return ret;
     }
 
-    size_t output_offset = 0;
-    for (uint32_t i = 0; i < encoder_.io_num.n_output; ++i) {
-        const auto& output_attr = encoder_.output_attrs[i];
-        const size_t output_elems = output_attr.n_elems;
-        if (outputs[i].buf == nullptr) {
-            LOG(ERROR) << "RKNN output buffer is null for index " << i;
+    if (encoder_.io_num.n_output == 1) {
+        if (outputs[0].buf == nullptr) {
+            LOG(ERROR) << "RKNN output buffer is null for index 0";
             ret = -1;
-            break;
+        } else {
+            memcpy(out_result, outputs[0].buf, outputs[0].size);
+        }
+    } else {
+        for (uint32_t i = 0; i < encoder_.io_num.n_output; ++i) {
+            int output_tokens = 0;
+            int output_embed_size = 0;
+            if (!infer_embedding_shape_from_attr(encoder_.output_attrs[i], output_tokens, output_embed_size)) {
+                LOG(ERROR) << "Could not infer embedding shape for RKNN output index " << i;
+                ret = -1;
+                break;
+            }
+            if (output_tokens != encoder_.model_image_token ||
+                output_embed_size != encoder_.model_embed_size) {
+                LOG(ERROR) << "Unsupported RKNN output shape at index " << i
+                           << ": expected tokens=" << encoder_.model_image_token
+                           << " embed_size=" << encoder_.model_embed_size
+                           << " but got tokens=" << output_tokens
+                           << " embed_size=" << output_embed_size;
+                ret = -1;
+                break;
+            }
+            if (outputs[i].buf == nullptr) {
+                LOG(ERROR) << "RKNN output buffer is null for index " << i;
+                ret = -1;
+                break;
+            }
         }
 
-        memcpy(out_result + output_offset, outputs[i].buf, output_elems * sizeof(float));
-        output_offset += output_elems;
+        if (ret == RKNN_SUCC) {
+            const size_t output_count = encoder_.io_num.n_output;
+            const size_t image_tokens = encoder_.model_image_token;
+            const size_t embed_size = encoder_.model_embed_size;
+            for (size_t token = 0; token < image_tokens; ++token) {
+                for (size_t output_index = 0; output_index < output_count; ++output_index) {
+                    const auto* output = static_cast<const float*>(outputs[output_index].buf);
+                    memcpy(
+                        out_result + token * output_count * embed_size + output_index * embed_size,
+                        output + token * embed_size,
+                        embed_size * sizeof(float));
+                }
+            }
+        }
     }
 
     int release_ret = rknn_outputs_release(encoder_.rknn_ctx, encoder_.io_num.n_output, outputs.data());
@@ -616,7 +709,7 @@ int Session::decode(const std::string& prompt, float* img_vec)
     RKLLMInferParam rkllm_infer_params;
     memset(&rkllm_infer_params, 0, sizeof(RKLLMInferParam));
     rkllm_infer_params.mode = RKLLM_INFER_GENERATE;
-    rkllm_infer_params.keep_history = 0;
+    rkllm_infer_params.keep_history = profile.use_chat_template ? 1 : 0;
 
     RKLLMInput rkllm_input;
     memset(&rkllm_input, 0, sizeof(RKLLMInput));
@@ -646,9 +739,10 @@ int Session::decode(const std::string& prompt, float* img_vec)
         rkllm_input.multimodal_input.image_width = image_width;
     }
 
-    if (rkllm_run(decoder_.handle, &rkllm_input, &rkllm_infer_params, this) != 0) {
-        LOG(ERROR) << "Failed to run RKLLM";
-        return -1;
+    int ret = rkllm_run(decoder_.handle, &rkllm_input, &rkllm_infer_params, this);
+    if (ret != 0) {
+        LOG(ERROR) << "Failed to run RKLLM, error=" << ret;
+        return ret;
     }
 
     return 0;

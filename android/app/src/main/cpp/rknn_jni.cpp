@@ -1,5 +1,7 @@
 #include <jni.h>
 
+#include <algorithm>
+#include <cctype>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -70,6 +72,29 @@ bool resolve_callback_methods(JNIEnv* env, jobject callback, JniCallbackContext*
     return true;
 }
 
+qwen_vl_rknn::ModelFamily infer_model_family(const char* encoder_path, const char* llm_path)
+{
+    std::string combined;
+    if (encoder_path != nullptr) {
+        combined += encoder_path;
+    }
+    combined += ' ';
+    if (llm_path != nullptr) {
+        combined += llm_path;
+    }
+    std::transform(combined.begin(), combined.end(), combined.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+
+    if (combined.find("smolvlm2") != std::string::npos ||
+        combined.find("smol-vlm2") != std::string::npos ||
+        combined.find("smol_vlm2") != std::string::npos) {
+        return qwen_vl_rknn::ModelFamily::SmolVLM2;
+    }
+
+    return qwen_vl_rknn::ModelFamily::QwenVL2;
+}
+
 void dispatch_callback(const char* text, LLMCallState state, JniCallbackContext* ctx)
 {
     if (ctx == nullptr || ctx->callback == nullptr) {
@@ -123,6 +148,7 @@ jint rknnLlm_init(JNIEnv* env, jclass, jstring jencoder_path, jstring jllm_path)
     }
 
     qwen_vl_rknn::ModelConfig config;
+    config.model_family = infer_model_family(encoder_path, llm_path);
     config.vision_encoder_path = encoder_path;
     config.language_model_path = llm_path;
     config.max_new_tokens = 512;
@@ -191,6 +217,7 @@ jint rknnLlm_setImage(JNIEnv* env, jclass, jstring jimage_path)
     if (ret != 0) {
         g_img_vec.clear();
         g_has_image = false;
+        LOGE("image encoding failed: %s", rknn_error_message(ret));
         return ret;
     }
 
@@ -238,6 +265,9 @@ jint rknnLlm_run(JNIEnv* env, jclass, jstring jprompt, jobject jcallback)
                 dispatch_callback(text, state, &ctx);
             });
             ret = static_cast<jint>(g_session->decode(prompt, g_has_image ? g_img_vec.data() : nullptr));
+            if (ret != 0) {
+                LOGE("decoder run failed: %d", static_cast<int>(ret));
+            }
             g_session->set_output_callback(nullptr);
         }
     }

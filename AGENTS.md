@@ -48,3 +48,7 @@ To build for native Linux:
 ## Caveats
 
 The build is intended to be run via Docker. The target is an RK3588 device, so the output of these builds cannot be run locally.
+
+## Markdown
+
+Markdown documents should use soft-wrapping. Tables should be aligned to be human readable.

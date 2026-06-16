@@ -42,9 +42,11 @@
     + Allow models to be switched dynamically
 
 - Tests
-  + Fix the broken reference to `qwen_vl_rknn::target_device()`
-  + Replace the placeholder readiness check for `is_ready()` with checks that do not require real RKNN/RKLLM model files
-  + Add a host-side unit test for `expand2square` covering portrait, landscape, and already-square inputs
+  + ~~Fix the broken reference to `qwen_vl_rknn::target_device()`~~
+  + ~~Replace the placeholder readiness check for `is_ready()` with checks that do not require real RKNN/RKLLM model files~~
+  + ~~Add a host-side preprocessing unit test covering square, portrait, and landscape inputs~~
+  * The `expand2square` helper is now dead code
+  + Run the host tests in CI
   + Add a smoke test that runs the binary against a tiny fixture model
 
 - Conversion
@@ -61,7 +63,13 @@
   + ~~AGENTS.md describing the project for assistants~~
   + Add a "Running" section to the README with concrete CLI examples once `Session::encode()` is functional
   + Document the expected `thirdparty/` layout and where to download the runtime libraries
+  + Document SmolVLM2 model source in the README "Models" section (currently only Qwen2-VL is covered)
 
 - R&D
   + Investigate changes required to support Qwen3-VL (**in progress**)
   + Design RAII wrappers for RKNN primitives
+
+- Cleanup
+  + Fix CI artifact paths and `build-native.sh`'s undefined `-DVLM_RKNN_ENABLE_RKNN` flag
+  + Decide whether the unconditional vision warm-up decode in `main.cc` should be silenced or removed
+  + Map `--cores 1` to a single core (or document that 1 means AUTO)

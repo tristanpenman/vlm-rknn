@@ -21,23 +21,27 @@ public final class RknnLlm {
 
   private static volatile boolean initialised = false;
   private static volatile boolean hasImage = false;
+  private static volatile String loadedModelFamily = null;
 
   /**
-   * Load the vision encoder and LLM from the given filesystem paths.
+   * Load the requested model family from the given filesystem paths.
    * If a model is already loaded it is released first.
    *
    * @return 0 on success, non-zero on failure.
    */
-  public static synchronized int init(@NonNull final String encoderPath,
+  public static synchronized int init(@NonNull final String modelFamily,
+                                      @NonNull final String encoderPath,
                                       @NonNull final String llmPath) {
     if (initialised) {
       nativeCleanup();
       initialised = false;
       hasImage = false;
+      loadedModelFamily = null;
     }
-    final int rc = nativeInit(encoderPath, llmPath);
+    final int rc = nativeInit(modelFamily, encoderPath, llmPath);
     if (rc == 0) {
       initialised = true;
+      loadedModelFamily = modelFamily;
     }
     return rc;
   }
@@ -45,6 +49,12 @@ public final class RknnLlm {
   /** Whether a model pair has been successfully loaded. */
   public static boolean isInitialised() {
     return initialised;
+  }
+
+  /** The loaded model family, or {@code null} if no model is loaded. */
+  @Nullable
+  public static String getLoadedModelFamily() {
+    return loadedModelFamily;
   }
 
   /** Whether an image has been encoded and is ready for multimodal queries. */
@@ -94,10 +104,11 @@ public final class RknnLlm {
       nativeCleanup();
       initialised = false;
       hasImage = false;
+      loadedModelFamily = null;
     }
   }
 
-  private static native int nativeInit(String encoderPath, String llmPath);
+  private static native int nativeInit(String modelFamily, String encoderPath, String llmPath);
   private static native int nativeSetImage(String imagePath);
   private static native int nativeRun(String prompt, RknnLlmCallback callback);
   private static native void nativeCleanup();

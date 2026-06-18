@@ -33,6 +33,19 @@
       <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:text="@string/label_model_family"
+        android:layout_marginTop="16dp"
+        android:textStyle="bold" />
+
+      <Spinner
+        android:id="@+id/model_family_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:entries="@array/model_family_labels" />
+
+      <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:text="@string/label_encoder_path"
         android:layout_marginTop="16dp"
         android:textStyle="bold" />
@@ -71,6 +84,14 @@
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
           android:text="@string/button_init" />
+
+        <Button
+          android:id="@+id/unload_button"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="8dp"
+          android:enabled="false"
+          android:text="@string/button_unload" />
 
       </LinearLayout>
 

@@ -1,7 +1,5 @@
 #include <jni.h>
 
-#include <algorithm>
-#include <cctype>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -72,29 +70,6 @@ bool resolve_callback_methods(JNIEnv* env, jobject callback, JniCallbackContext*
     return true;
 }
 
-vlm_rknn::ModelFamily infer_model_family(const char* encoder_path, const char* llm_path)
-{
-    std::string combined;
-    if (encoder_path != nullptr) {
-        combined += encoder_path;
-    }
-    combined += ' ';
-    if (llm_path != nullptr) {
-        combined += llm_path;
-    }
-    std::transform(combined.begin(), combined.end(), combined.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-
-    if (combined.find("smolvlm2") != std::string::npos ||
-        combined.find("smol-vlm2") != std::string::npos ||
-        combined.find("smol_vlm2") != std::string::npos) {
-        return vlm_rknn::ModelFamily::SmolVLM2;
-    }
-
-    return vlm_rknn::ModelFamily::QwenVL2;
-}
-
 void dispatch_callback(const char* text, LLMCallState state, JniCallbackContext* ctx)
 {
     if (ctx == nullptr || ctx->callback == nullptr) {
@@ -130,26 +105,40 @@ void dispatch_callback(const char* text, LLMCallState state, JniCallbackContext*
     release_env(ctx->vm, attached);
 }
 
-jint rknnLlm_init(JNIEnv* env, jclass, jstring jencoder_path, jstring jllm_path)
+jint rknnLlm_init(JNIEnv* env, jclass, jstring jmodel_family, jstring jencoder_path, jstring jllm_path)
 {
-    if (jencoder_path == nullptr || jllm_path == nullptr) {
+    if (jmodel_family == nullptr || jencoder_path == nullptr || jllm_path == nullptr) {
         LOGE("model path is null");
         return -1;
     }
 
+    const char* model_family = env->GetStringUTFChars(jmodel_family, nullptr);
+    if (model_family == nullptr) {
+        return -1;
+    }
     const char* encoder_path = env->GetStringUTFChars(jencoder_path, nullptr);
     if (encoder_path == nullptr) {
+        env->ReleaseStringUTFChars(jmodel_family, model_family);
         return -1;
     }
     const char* llm_path = env->GetStringUTFChars(jllm_path, nullptr);
     if (llm_path == nullptr) {
         env->ReleaseStringUTFChars(jencoder_path, encoder_path);
+        env->ReleaseStringUTFChars(jmodel_family, model_family);
         return -1;
     }
 
     vlm_rknn::ModelConfig config;
-    config.model_family = infer_model_family(encoder_path, llm_path);
-    config.vision_encoder_path = encoder_path;
+    if (!vlm_rknn::parse_model_family(model_family, config.model_family)) {
+        LOGE("unknown model family: %s", model_family);
+        env->ReleaseStringUTFChars(jllm_path, llm_path);
+        env->ReleaseStringUTFChars(jencoder_path, encoder_path);
+        env->ReleaseStringUTFChars(jmodel_family, model_family);
+        return -1;
+    }
+    if (vlm_rknn::model_family_uses_vision_encoder(config.model_family)) {
+        config.vision_encoder_path = encoder_path;
+    }
     config.language_model_path = llm_path;
     config.max_new_tokens = 512;
     config.max_context_len = 4096;
@@ -160,6 +149,7 @@ jint rknnLlm_init(JNIEnv* env, jclass, jstring jencoder_path, jstring jllm_path)
 
     env->ReleaseStringUTFChars(jllm_path, llm_path);
     env->ReleaseStringUTFChars(jencoder_path, encoder_path);
+    env->ReleaseStringUTFChars(jmodel_family, model_family);
 
     std::lock_guard<std::mutex> lock(g_mutex);
     if (ret == 0) {
@@ -192,6 +182,10 @@ jint rknnLlm_setImage(JNIEnv* env, jclass, jstring jimage_path)
     std::lock_guard<std::mutex> lock(g_mutex);
     if (!g_session || !g_session->is_ready()) {
         LOGE("not initialised");
+        return -1;
+    }
+    if (!vlm_rknn::model_family_uses_vision_encoder(g_session->config().model_family)) {
+        LOGE("active model family does not use a vision encoder");
         return -1;
     }
 
@@ -304,7 +298,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*)
     }
 
     const JNINativeMethod methods[] = {
-        {"nativeInit", "(Ljava/lang/String;Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlm_init)},
+        {"nativeInit", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlm_init)},
         {"nativeSetImage", "(Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlm_setImage)},
         {"nativeRun", "(Ljava/lang/String;Lcom/tristanpenman/vlmrknn/RknnLlmCallback;)I", reinterpret_cast<void*>(rknnLlm_run)},
         {"nativeCleanup", "()V", reinterpret_cast<void*>(rknnLlm_cleanup)},

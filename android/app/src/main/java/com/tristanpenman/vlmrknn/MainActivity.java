@@ -6,9 +6,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -30,7 +32,9 @@ public final class MainActivity extends AppCompatActivity {
   private EditText promptInput;
   private TextView responseOutput;
   private TextView statusLabel;
+  private Spinner modelFamilySpinner;
   private Button initButton;
+  private Button unloadButton;
   private Button loadImageButton;
   private Button runButton;
   private ImageView imagePreview;
@@ -46,18 +50,34 @@ public final class MainActivity extends AppCompatActivity {
     promptInput = findViewById(R.id.prompt_input);
     responseOutput = findViewById(R.id.response_output);
     statusLabel = findViewById(R.id.status_label);
+    modelFamilySpinner = findViewById(R.id.model_family_spinner);
     initButton = findViewById(R.id.init_button);
+    unloadButton = findViewById(R.id.unload_button);
     loadImageButton = findViewById(R.id.load_image_button);
     runButton = findViewById(R.id.run_button);
     imagePreview = findViewById(R.id.image_preview);
 
     initButton.setOnClickListener(v -> onInitClicked());
+    unloadButton.setOnClickListener(v -> onUnloadClicked());
     loadImageButton.setOnClickListener(v -> onLoadImageClicked());
     runButton.setOnClickListener(v -> onRunClicked());
+    modelFamilySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+      @Override
+      public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        updateControls(false);
+      }
 
-    loadImageButton.setEnabled(RknnLlm.isInitialised());
-    runButton.setEnabled(RknnLlm.isInitialised());
+      @Override
+      public void onNothingSelected(AdapterView<?> parent) {
+        updateControls(false);
+      }
+    });
+    final String loadedModelFamily = RknnLlm.getLoadedModelFamily();
+    if (loadedModelFamily != null) {
+      modelFamilySpinner.setSelection(getModelFamilyPosition(loadedModelFamily));
+    }
 
+    updateControls(false);
   }
 
   @Override
@@ -70,8 +90,10 @@ public final class MainActivity extends AppCompatActivity {
   }
 
   private void onInitClicked() {
+    final String modelFamily = getSelectedModelFamily();
+    final boolean usesVisionEncoder = modelFamilyUsesVisionEncoder(modelFamily);
     String encoderPath = encoderPathInput.getText().toString().trim();
-    if (encoderPath.isEmpty()) {
+    if (usesVisionEncoder && encoderPath.isEmpty()) {
       encoderPath = getString(R.string.hint_encoder_path);
     }
     String llmPath = llmPathInput.getText().toString().trim();
@@ -84,7 +106,7 @@ public final class MainActivity extends AppCompatActivity {
     final String finalEncoderPath = encoderPath;
     final String finalLlmPath = llmPath;
     executor.execute(() -> {
-      final int rc = RknnLlm.init(finalEncoderPath, finalLlmPath);
+      final int rc = RknnLlm.init(modelFamily, finalEncoderPath, finalLlmPath);
       mainHandler.post(() -> {
         if (rc == 0) {
           setBusy(false, getString(R.string.status_model_loaded));
@@ -92,6 +114,18 @@ public final class MainActivity extends AppCompatActivity {
           RknnLlm.cleanup();
           setBusy(false, getString(R.string.status_init_failed, rc));
         }
+      });
+    });
+  }
+
+  private void onUnloadClicked() {
+    setBusy(true, getString(R.string.status_unloading_model));
+    executor.execute(() -> {
+      RknnLlm.cleanup();
+      mainHandler.post(() -> {
+        imagePreview.setImageDrawable(null);
+        imagePreview.setVisibility(View.GONE);
+        setBusy(false, getString(R.string.status_model_unloaded));
       });
     });
   }
@@ -185,10 +219,45 @@ public final class MainActivity extends AppCompatActivity {
   }
 
   private void setBusy(boolean busy, CharSequence statusText) {
-    final boolean ready = RknnLlm.isInitialised();
-    initButton.setEnabled(!busy);
-    loadImageButton.setEnabled(!busy && ready);
-    runButton.setEnabled(!busy && ready);
+    updateControls(busy);
     statusLabel.setText(statusText);
+  }
+
+  private void updateControls(boolean busy) {
+    final boolean ready = RknnLlm.isInitialised();
+    final String activeModelFamily = ready ? RknnLlm.getLoadedModelFamily() : getSelectedModelFamily();
+    final boolean usesVisionEncoder = activeModelFamily != null && modelFamilyUsesVisionEncoder(activeModelFamily);
+    modelFamilySpinner.setEnabled(!busy && !ready);
+    encoderPathInput.setEnabled(!busy && !ready && usesVisionEncoder);
+    llmPathInput.setEnabled(!busy && !ready);
+    imagePathInput.setEnabled(!busy && ready && usesVisionEncoder);
+    initButton.setEnabled(!busy && !ready);
+    unloadButton.setEnabled(!busy && ready);
+    loadImageButton.setEnabled(!busy && ready && usesVisionEncoder);
+    runButton.setEnabled(!busy && ready);
+  }
+
+  @NonNull
+  private String getSelectedModelFamily() {
+    final String[] values = getResources().getStringArray(R.array.model_family_values);
+    final int position = modelFamilySpinner.getSelectedItemPosition();
+    if (position >= 0 && position < values.length) {
+      return values[position];
+    }
+    return values[0];
+  }
+
+  private static boolean modelFamilyUsesVisionEncoder(@NonNull String modelFamily) {
+    return !"llama".equals(modelFamily);
+  }
+
+  private int getModelFamilyPosition(@NonNull String modelFamily) {
+    final String[] values = getResources().getStringArray(R.array.model_family_values);
+    for (int i = 0; i < values.length; i++) {
+      if (modelFamily.equals(values[i])) {
+        return i;
+      }
+    }
+    return 0;
   }
 }

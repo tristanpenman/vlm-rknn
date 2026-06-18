@@ -1,6 +1,17 @@
 <resources>
   <string name="app_name">VLM RKNN</string>
 
+  <string name="label_model_family">Model</string>
+  <string-array name="model_family_labels">
+    <item>QwenVl</item>
+    <item>llama</item>
+    <item>smolvlm</item>
+  </string-array>
+  <string-array name="model_family_values">
+    <item>qwen2-vl</item>
+    <item>llama</item>
+    <item>smolvlm2</item>
+  </string-array>
   <string name="label_encoder_path">Vision encoder model path</string>
   <string name="hint_encoder_path">/data/local/tmp/models/qwen2_vl_2b_vision_rk3588.rknn</string>
   <string name="label_llm_path">LLM model path</string>
@@ -20,16 +31,19 @@
   <string name="hint_prompt">e.g. &lt;image&gt;What is in the image?</string>
   <string name="default_prompt">&lt;image&gt;What is in the image?</string>
   <string name="button_run">Run</string>
+  <string name="button_unload">Unload</string>
 
   <string name="label_response">Response</string>
   <string name="image_preview_description">Loaded image preview</string>
 
-  <string name="status_model_path_required">Enter both model paths.</string>
+  <string name="status_model_path_required">Enter the required model paths.</string>
   <string name="status_image_path_required">Enter an image path.</string>
   <string name="status_prompt_required">Enter a prompt.</string>
   <string name="status_not_initialised">Models not loaded.</string>
   <string name="status_loading_model">Loading models...</string>
   <string name="status_model_loaded">Models loaded.</string>
+  <string name="status_unloading_model">Unloading models...</string>
+  <string name="status_model_unloaded">Models unloaded.</string>
   <string name="status_init_failed">Init failed (rc=%1$d).</string>
   <string name="status_loading_image">Encoding image...</string>
   <string name="status_image_loaded">Image encoded.</string>

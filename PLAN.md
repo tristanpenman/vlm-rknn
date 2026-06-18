@@ -37,9 +37,9 @@
   + ~~Run the supplied prompt once and exit when `[prompt]` is provided~~
   + ~~Drop into an interactive REPL when no prompt is given~~
   + ~~Expose `--max-new-tokens` and `--max-context-len` flags that flow through to `ModelConfig`~~
+  + ~~Optional Android frontend~~
+    + ~~Allow models to be switched dynamically~~
   + Install a `SIGINT` handler that destroys the RKLLM handle cleanly
-  + Optional Android frontend
-    + Allow models to be switched dynamically
 
 - Tests
   + ~~Fix the broken reference to `qwen_vl_rknn::target_device()`~~
@@ -71,5 +71,5 @@
 
 - Cleanup
   + Fix CI artifact paths and `build-native.sh`'s undefined `-DVLM_RKNN_ENABLE_RKNN` flag
-  + Decide whether the unconditional vision warm-up decode in `main.cc` should be silenced or removed
+  + ~~Decide whether the unconditional vision warm-up decode in `main.cc` should be silenced or removed~~
   + Map `--cores 1` to a single core (or document that 1 means AUTO)

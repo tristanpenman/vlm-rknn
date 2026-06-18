@@ -305,17 +305,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    const std::string warmup_prompt =
-        std::string(vlm_rknn::model_family_image_placeholder(config.model_family)) +
-        "What is in the image?";
-    LOG(INFO) << "Encoder ran successfully. Warming up decoder with multimodal input...";
-    ret = session.decode(warmup_prompt, img_vec.data());
-    if (ret != 0) {
-        LOG(ERROR) << "Failed to run decoder, error=" << ret;
-        return -1;
-    }
-
-    LOG(INFO) << "Decoder ran successfully!";
+    LOG(INFO) << "Encoder ran successfully!";
     if (prompt.has_value()) {
         LOG(INFO) << "Running decoder with prompt: " << *prompt;
         ret = session.decode(*prompt, img_vec.data());

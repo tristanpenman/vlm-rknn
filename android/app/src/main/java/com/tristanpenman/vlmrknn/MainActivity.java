@@ -64,6 +64,9 @@ public final class MainActivity extends AppCompatActivity {
     modelFamilySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
       @Override
       public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        if (!RknnLlm.isInitialised()) {
+          applyModelFamilyDefaults(position);
+        }
         updateControls(false);
       }
 
@@ -75,6 +78,8 @@ public final class MainActivity extends AppCompatActivity {
     final String loadedModelFamily = RknnLlm.getLoadedModelFamily();
     if (loadedModelFamily != null) {
       modelFamilySpinner.setSelection(getModelFamilyPosition(loadedModelFamily));
+    } else {
+      applyModelFamilyDefaults(modelFamilySpinner.getSelectedItemPosition());
     }
 
     updateControls(false);
@@ -94,11 +99,11 @@ public final class MainActivity extends AppCompatActivity {
     final boolean usesVisionEncoder = modelFamilyUsesVisionEncoder(modelFamily);
     String encoderPath = encoderPathInput.getText().toString().trim();
     if (usesVisionEncoder && encoderPath.isEmpty()) {
-      encoderPath = getString(R.string.hint_encoder_path);
+      encoderPath = getSelectedArrayValue(R.array.model_family_vision_defaults);
     }
     String llmPath = llmPathInput.getText().toString().trim();
     if (llmPath.isEmpty()) {
-      llmPath = getString(R.string.hint_llm_path);
+      llmPath = getSelectedArrayValue(R.array.model_family_llm_defaults);
     }
 
     setBusy(true, getString(R.string.status_loading_model));
@@ -259,5 +264,38 @@ public final class MainActivity extends AppCompatActivity {
       }
     }
     return 0;
+  }
+
+  private void applyModelFamilyDefaults(int position) {
+    final String modelFamily = getModelFamilyAtPosition(position);
+    final boolean usesVisionEncoder = modelFamilyUsesVisionEncoder(modelFamily);
+    final String visionDefault = getArrayValue(R.array.model_family_vision_defaults, position);
+    final String llmDefault = getArrayValue(R.array.model_family_llm_defaults, position);
+    encoderPathInput.setHint(usesVisionEncoder
+        ? visionDefault
+        : getString(R.string.hint_encoder_path_not_applicable));
+    encoderPathInput.setText(visionDefault);
+    llmPathInput.setHint(llmDefault);
+    llmPathInput.setText(llmDefault);
+    promptInput.setText(getArrayValue(R.array.model_family_prompt_defaults, position));
+  }
+
+  @NonNull
+  private String getSelectedArrayValue(int arrayResId) {
+    return getArrayValue(arrayResId, modelFamilySpinner.getSelectedItemPosition());
+  }
+
+  @NonNull
+  private String getModelFamilyAtPosition(int position) {
+    return getArrayValue(R.array.model_family_values, position);
+  }
+
+  @NonNull
+  private String getArrayValue(int arrayResId, int position) {
+    final String[] values = getResources().getStringArray(arrayResId);
+    if (position >= 0 && position < values.length) {
+      return values[position];
+    }
+    return values[0];
   }
 }

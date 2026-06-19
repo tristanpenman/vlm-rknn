@@ -82,7 +82,6 @@ public:
 
     private:
         Logger &m_logger;
-        Level m_level;
         std::stringstream m_ss;
         bool m_enabled{false};
     };

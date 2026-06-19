@@ -42,7 +42,7 @@ const ModelProfile& model_profile_for(ModelFamily family)
         {1.0f, 1.0f, 1.0f},
     };
 
-    static constexpr ImagePreprocessProfile unused_image_preprocess {
+    static constexpr ImagePreprocessProfile llama_image_preprocess {
         ResizeMode::PadToSquare,
         true,
         false,
@@ -100,7 +100,7 @@ const ModelProfile& model_profile_for(ModelFamily family)
         "",
         "",
         "",
-        unused_image_preprocess,
+        llama_image_preprocess,
     };
 
     static constexpr ImagePreprocessProfile smolvlm2_image_preprocess {

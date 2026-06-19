@@ -101,7 +101,6 @@ endif()
 # -----------------------------------------------------------------------------
 
 add_library(vlm_rknn_core STATIC
-    cpp/src/cv2_utils.cc
     cpp/src/logger.cc
     cpp/src/rknn_utils.cc
     cpp/src/vlm_rknn.cc

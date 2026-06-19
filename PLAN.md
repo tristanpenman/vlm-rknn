@@ -45,7 +45,7 @@
   + ~~Fix the broken reference to `qwen_vl_rknn::target_device()`~~
   + ~~Replace the placeholder readiness check for `is_ready()` with checks that do not require real RKNN/RKLLM model files~~
   + ~~Add a host-side preprocessing unit test covering square, portrait, and landscape inputs~~
-  * The `expand2square` helper is now dead code
+  + ~~Remove the dead `expand2square` helper~~
   + Run the host tests in CI
   + Add a smoke test that runs the binary against a tiny fixture model
 

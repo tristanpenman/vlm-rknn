@@ -74,7 +74,6 @@ void Logger::configure(ostream &os, const Level minLevel)
 
 Logger::Writer::Writer(Logger &logger, const Level level)
   : m_logger(logger)
-  , m_level(level)
 {
     m_enabled = m_os.load() && level >= m_minLevel.load();
     if (!m_enabled) {

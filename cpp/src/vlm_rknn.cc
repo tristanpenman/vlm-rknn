@@ -342,12 +342,16 @@ int Session::init_vision_encoder()
     // Set RKNN core mask if specified in the configuration
     if (config_.num_cores.has_value()) {
         int core_num = config_.num_cores.value();
-        if (core_num == 2) {
+        if (core_num == 1) {
+            ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_0);
+        } else if (core_num == 2) {
             ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_0_1);
         } else if (core_num == 3) {
             ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_0_1_2);
         } else {
-            ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_AUTO);
+            LOG(ERROR) << "Invalid RKNN core count: " << core_num;
+            rknn_destroy(ctx);
+            return -1;
         }
         if (ret != 0) {
             LOG(ERROR) << "Failed to set RKNN core mask, error=" << rknn_error_message(ret);

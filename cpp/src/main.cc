@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cerrno>
+#include <climits>
 #include <cstring>
 #include <cstdlib>
 #include <iostream>
@@ -50,6 +52,21 @@ bool get_option_value(int argc, char** argv, int& index, const char* option, con
     return true;
 }
 
+bool parse_int_option(const char* option, const char* value, int min_value, int max_value, int& parsed)
+{
+    errno = 0;
+    char* end = nullptr;
+    const long result = std::strtol(value, &end, 10);
+    if (value == end || *end != '\0' || errno == ERANGE || result < min_value || result > max_value) {
+        LOG(WARNING) << "Invalid value for " << option << ": " << value
+                     << " (expected " << min_value << "-" << max_value << ")";
+        return false;
+    }
+
+    parsed = static_cast<int>(result);
+    return true;
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
@@ -78,11 +95,11 @@ int main(int argc, char** argv)
             if (!get_option_value(argc, argv, i, "--cores", value)) {
                 return -1;
             }
-            num_cores = std::atoi(value);
-            if (num_cores <= 0 || num_cores > 3) {
-                LOG(WARNING) << "Invalid number of cores specified: " << value;
+            int parsed = 0;
+            if (!parse_int_option("--cores", value, 1, 3, parsed)) {
                 return -1;
             }
+            num_cores = parsed;
             continue;
         }
         if (strcmp(argv[i], "--model-family") == 0) {
@@ -105,11 +122,11 @@ int main(int argc, char** argv)
             if (!get_option_value(argc, argv, i, "--max-new-tokens", value)) {
                 return -1;
             }
-            max_new_tokens = std::atoi(value);
-            if (max_new_tokens <= 0) {
-                LOG(WARNING) << "Invalid max new token count specified: " << value;
+            int parsed = 0;
+            if (!parse_int_option("--max-new-tokens", value, 1, INT_MAX, parsed)) {
                 return -1;
             }
+            max_new_tokens = parsed;
             continue;
         }
         if (strcmp(argv[i], "--max-context-len") == 0) {
@@ -117,11 +134,11 @@ int main(int argc, char** argv)
             if (!get_option_value(argc, argv, i, "--max-context-len", value)) {
                 return -1;
             }
-            max_context_len = std::atoi(value);
-            if (max_context_len <= 0) {
-                LOG(WARNING) << "Invalid max context length specified: " << value;
+            int parsed = 0;
+            if (!parse_int_option("--max-context-len", value, 1, INT_MAX, parsed)) {
                 return -1;
             }
+            max_context_len = parsed;
             continue;
         }
         if (strcmp(argv[i], "--vision") == 0) {

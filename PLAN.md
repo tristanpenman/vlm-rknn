@@ -72,4 +72,4 @@
 - Cleanup
   + Fix CI artifact paths and `build-native.sh`'s undefined `-DVLM_RKNN_ENABLE_RKNN` flag
   + ~~Decide whether the unconditional vision warm-up decode in `main.cc` should be silenced or removed~~
-  + Map `--cores 1` to a single core (or document that 1 means AUTO)
+  + ~~Map `--cores 1` to a single core~~

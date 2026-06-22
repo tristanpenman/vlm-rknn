@@ -29,6 +29,7 @@ endif()
 # -----------------------------------------------------------------------------
 
 option(VLM_RKNN_ENABLE_OPENCV "Fetch and link OpenCV as a third-party dependency" ON)
+option(VLM_RKNN_ENABLE_SERVER "Build the native HTTP server executable" ON)
 
 set(VLM_RKNN_TARGET "rk3588" CACHE STRING "Rockchip target device family")
 
@@ -97,6 +98,36 @@ if(VLM_RKNN_ENABLE_OPENCV)
 endif()
 
 # -----------------------------------------------------------------------------
+# HTTP server dependencies
+# -----------------------------------------------------------------------------
+
+if(VLM_RKNN_ENABLE_SERVER AND NOT ANDROID)
+    set(JSON_BuildTests OFF CACHE INTERNAL "")
+    set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF CACHE BOOL "Disable cpp-httplib OpenSSL support" FORCE)
+    set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF CACHE BOOL "Disable cpp-httplib zlib support" FORCE)
+    set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF CACHE BOOL "Disable cpp-httplib Brotli support" FORCE)
+    set(HTTPLIB_INSTALL OFF CACHE BOOL "Disable cpp-httplib install rules" FORCE)
+
+    FetchContent_Declare(
+        httplib
+        GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+        GIT_TAG v0.18.6
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+    )
+
+    FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.12.0
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+    )
+
+    FetchContent_MakeAvailable(httplib nlohmann_json)
+endif()
+
+# -----------------------------------------------------------------------------
 # vlm_rknn_core
 # -----------------------------------------------------------------------------
 
@@ -147,6 +178,30 @@ target_link_libraries(vlm-rknn PRIVATE vlm-rknn::core)
 target_link_options(vlm-rknn PRIVATE
     $<$<CONFIG:Release>:-Wl,--strip-all>
 )
+
+# -----------------------------------------------------------------------------
+# vlm-rknn-server
+# -----------------------------------------------------------------------------
+
+if(VLM_RKNN_ENABLE_SERVER AND NOT ANDROID)
+    add_executable(vlm-rknn-server
+        cpp/src/server.cc
+    )
+
+    set_target_properties(vlm-rknn-server PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+
+    target_link_libraries(vlm-rknn-server PRIVATE
+        vlm-rknn::core
+        httplib::httplib
+        nlohmann_json::nlohmann_json
+    )
+
+    target_link_options(vlm-rknn-server PRIVATE
+        $<$<CONFIG:Release>:-Wl,--strip-all>
+    )
+endif()
 
 # -----------------------------------------------------------------------------
 # Tests

@@ -19,8 +19,7 @@ cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" -G Ninja \
   -DCMAKE_SYSTEM_NAME=Linux \
   -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
   -DCMAKE_CXX_COMPILER="${CXX:-aarch64-linux-gnu-g++}" \
-  -DBUILD_TESTING=ON \
-  -DVLM_RKNN_ENABLE_RKNN="${VLM_RKNN_ENABLE_RKNN:-OFF}"
+  -DBUILD_TESTING=ON
 cmake --build "${BUILD_DIR}" -j"$(nproc)"
 
 echo "Native Rockchip Linux build finished: ${BUILD_DIR}/vlm-rknn"

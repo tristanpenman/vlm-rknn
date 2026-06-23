@@ -211,7 +211,7 @@ jint rknnLlm_setImage(JNIEnv* env, jclass, jstring jimage_path)
     if (ret != 0) {
         g_img_vec.clear();
         g_has_image = false;
-        LOGE("image encoding failed: %s", rknn_error_message(ret));
+        LOGE("image encoding failed: %s", rknn_utils::rknn_error_message(ret));
         return ret;
     }
 

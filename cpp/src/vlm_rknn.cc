@@ -333,11 +333,11 @@ int Session::init_vision_encoder()
     }
     int ret = rknn_init(&ctx, (void*)config_.vision_encoder_path->c_str(), 0, 0, NULL);
     if (ret < 0) {
-        LOG(ERROR) << "Failed to initialize RKNN, error=" << rknn_error_message(ret);
+        LOG(ERROR) << "Failed to initialize RKNN, error=" << rknn_utils::rknn_error_message(ret);
         return -1;
     }
 
-    log_rknn_version(ctx);
+    rknn_utils::log_rknn_version(ctx);
 
     // Set RKNN core mask if specified in the configuration
     if (config_.num_cores.has_value()) {
@@ -354,7 +354,7 @@ int Session::init_vision_encoder()
             return -1;
         }
         if (ret != 0) {
-            LOG(ERROR) << "Failed to set RKNN core mask, error=" << rknn_error_message(ret);
+            LOG(ERROR) << "Failed to set RKNN core mask, error=" << rknn_utils::rknn_error_message(ret);
             return -1;
         }
     }
@@ -362,7 +362,7 @@ int Session::init_vision_encoder()
     // Query model I/O information
     ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &encoder_.io_num, sizeof(encoder_.io_num));
     if (ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to query RKNN input/output count, error=" << rknn_error_message(ret);
+        LOG(ERROR) << "Failed to query RKNN input/output count, error=" << rknn_utils::rknn_error_message(ret);
         return -1;
     }
 
@@ -397,11 +397,11 @@ int Session::init_vision_encoder()
         ret = rknn_query(ctx, RKNN_QUERY_INPUT_ATTR, &encoder_.input_attrs[i], sizeof(rknn_tensor_attr));
         if (ret != RKNN_SUCC) {
             LOG(ERROR) << "Failed to query RKNN input attr for index " << i
-                       << ", error=" << rknn_error_message(ret);
+                       << ", error=" << rknn_utils::rknn_error_message(ret);
             return -1;
         }
         if (Logger::verbose()) {
-            LOG(VERBOSE) << "RKNN input tensor: " << tensor_attr_to_string(encoder_.input_attrs[i]);
+            LOG(VERBOSE) << "RKNN input tensor: " << rknn_utils::tensor_attr_to_string(encoder_.input_attrs[i]);
         }
     }
 
@@ -410,11 +410,11 @@ int Session::init_vision_encoder()
         ret = rknn_query(ctx, RKNN_QUERY_OUTPUT_ATTR, &encoder_.output_attrs[i], sizeof(rknn_tensor_attr));
         if (ret != RKNN_SUCC) {
             LOG(ERROR) << "Failed to query RKNN output attr for index " << i
-                       << ", error=" << rknn_error_message(ret);
+                       << ", error=" << rknn_utils::rknn_error_message(ret);
             return -1;
         }
         if (Logger::verbose()) {
-            LOG(VERBOSE) << "RKNN output tensor: " << tensor_attr_to_string(encoder_.output_attrs[i]);
+            LOG(VERBOSE) << "RKNN output tensor: " << rknn_utils::tensor_attr_to_string(encoder_.output_attrs[i]);
         }
     }
 
@@ -484,7 +484,7 @@ int Session::init_text_decoder()
         }
     }
 
-    log_rkllm_version();
+    rknn_utils::log_rkllm_version();
 
     return 0;
 }
@@ -618,13 +618,13 @@ int Session::encode(void* img_data, float* out_result)
 
     int ret = rknn_inputs_set(encoder_.rknn_ctx, 1, &input);
     if (ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to set RKNN input, error=" << rknn_error_message(ret);
+        LOG(ERROR) << "Failed to set RKNN input, error=" << rknn_utils::rknn_error_message(ret);
         return ret;
     }
 
     ret = rknn_run(encoder_.rknn_ctx, nullptr);
     if (ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to run RKNN encoder, error=" << rknn_error_message(ret);
+        LOG(ERROR) << "Failed to run RKNN encoder, error=" << rknn_utils::rknn_error_message(ret);
         return ret;
     }
 
@@ -638,7 +638,7 @@ int Session::encode(void* img_data, float* out_result)
 
     ret = rknn_outputs_get(encoder_.rknn_ctx, encoder_.io_num.n_output, outputs.data(), nullptr);
     if (ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to get RKNN output, error=" << rknn_error_message(ret);
+        LOG(ERROR) << "Failed to get RKNN output, error=" << rknn_utils::rknn_error_message(ret);
         return ret;
     }
 
@@ -693,7 +693,7 @@ int Session::encode(void* img_data, float* out_result)
 
     int release_ret = rknn_outputs_release(encoder_.rknn_ctx, encoder_.io_num.n_output, outputs.data());
     if (release_ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to release RKNN output buffers, error=" << rknn_error_message(release_ret);
+        LOG(ERROR) << "Failed to release RKNN output buffers, error=" << rknn_utils::rknn_error_message(release_ret);
         return release_ret;
     }
 

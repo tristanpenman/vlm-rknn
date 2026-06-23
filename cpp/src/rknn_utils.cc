@@ -76,6 +76,8 @@ std::optional<std::string> read_embedded_version_string(
 
 }  // namespace
 
+namespace rknn_utils {
+
 const char* rknn_error_message(int ret)
 {
     switch (ret) {
@@ -175,3 +177,5 @@ void log_rkllm_version()
     LOG(WARNING) << "RKLLM version: unavailable (no embedded version marker found in "
                  << *library_path << ")";
 }
+
+}  // namespace rknn_utils

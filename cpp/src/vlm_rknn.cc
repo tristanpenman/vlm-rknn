@@ -1,5 +1,8 @@
 #include <algorithm>
+#include <cerrno>
+#include <climits>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -9,6 +12,7 @@
 
 #include <opencv2/imgproc.hpp>
 
+#include "ini.h"
 #include "logger.h"
 #include "vlm_rknn.h"
 #include "rknn_utils.h"
@@ -220,6 +224,125 @@ bool parse_model_family(std::string_view value, ModelFamily& family)
     }
 
     return false;
+}
+
+namespace {
+
+// Recognised INI keys for a model section. Mirrors the command-line options,
+// with underscores instead of hyphens.
+bool is_recognised_model_key(const std::string& key)
+{
+    return key == "model_family" || key == "vision" || key == "llm"
+        || key == "max_new_tokens" || key == "max_context_len" || key == "cores";
+}
+
+bool parse_int_value(
+    const std::string& key,
+    const std::string& value,
+    int min_value,
+    int max_value,
+    int& parsed,
+    std::string& error)
+{
+    errno = 0;
+    char* end = nullptr;
+    const long result = std::strtol(value.c_str(), &end, 10);
+    if (value.empty() || *end != '\0' || errno == ERANGE
+        || result < min_value || result > max_value) {
+        error = "invalid value for '" + key + "': " + value
+            + " (expected " + std::to_string(min_value) + "-" + std::to_string(max_value) + ")";
+        return false;
+    }
+
+    parsed = static_cast<int>(result);
+    return true;
+}
+
+}  // namespace
+
+bool parse_model_configs_from_ini(
+    const std::string& ini_text,
+    std::vector<NamedModelConfig>& out,
+    std::string& error)
+{
+    out.clear();
+
+    ini::Document document;
+    if (!ini::parse(ini_text, document, error)) {
+        return false;
+    }
+
+    if (document.sections.empty()) {
+        error = "no models defined; expected at least one [model_id] section";
+        return false;
+    }
+
+    for (const auto& section : document.sections) {
+        ModelConfig config;
+
+        for (const auto& entry : section.entries) {
+            if (!is_recognised_model_key(entry.first)) {
+                error = "[" + section.name + "]: unknown key '" + entry.first + "'";
+                return false;
+            }
+        }
+
+        if (const auto family = section.get("model_family"); family.has_value()) {
+            if (!parse_model_family(*family, config.model_family)) {
+                error = "[" + section.name + "]: invalid model_family: " + *family;
+                return false;
+            }
+        }
+
+        if (const auto value = section.get("max_new_tokens"); value.has_value()) {
+            if (!parse_int_value("max_new_tokens", *value, 1, INT_MAX, config.max_new_tokens, error)) {
+                error = "[" + section.name + "]: " + error;
+                return false;
+            }
+        }
+
+        if (const auto value = section.get("max_context_len"); value.has_value()) {
+            if (!parse_int_value("max_context_len", *value, 1, INT_MAX, config.max_context_len, error)) {
+                error = "[" + section.name + "]: " + error;
+                return false;
+            }
+        }
+
+        if (const auto value = section.get("cores"); value.has_value()) {
+            int cores = 0;
+            if (!parse_int_value("cores", *value, 1, 3, cores, error)) {
+                error = "[" + section.name + "]: " + error;
+                return false;
+            }
+            config.num_cores = cores;
+        }
+
+        const auto llm = section.get("llm");
+        if (!llm.has_value() || llm->empty()) {
+            error = "[" + section.name + "]: missing required key 'llm'";
+            return false;
+        }
+        config.language_model_path = *llm;
+
+        const auto vision = section.get("vision");
+        const bool has_vision = vision.has_value() && !vision->empty();
+        if (model_family_uses_vision_encoder(config.model_family)) {
+            if (!has_vision) {
+                error = "[" + section.name + "]: missing required key 'vision' for "
+                    + model_family_name(config.model_family);
+                return false;
+            }
+            config.vision_encoder_path = *vision;
+        } else if (has_vision) {
+            error = "[" + section.name + "]: 'vision' is not supported for "
+                + model_family_name(config.model_family);
+            return false;
+        }
+
+        out.push_back(NamedModelConfig{section.name, std::move(config)});
+    }
+
+    return true;
 }
 
 const char* model_family_name(ModelFamily family)

@@ -29,7 +29,7 @@ endif()
 # -----------------------------------------------------------------------------
 
 option(VLM_RKNN_ENABLE_OPENCV "Fetch and link OpenCV as a third-party dependency" ON)
-option(VLM_RKNN_ENABLE_SERVER "Build the native HTTP server executable" ON)
+option(VLM_RKNN_ENABLE_SERVER "Build the HTTP server executable" ON)
 
 set(VLM_RKNN_TARGET "rk3588" CACHE STRING "Rockchip target device family")
 
@@ -101,7 +101,7 @@ endif()
 # HTTP server dependencies
 # -----------------------------------------------------------------------------
 
-if(VLM_RKNN_ENABLE_SERVER AND NOT ANDROID)
+if(VLM_RKNN_ENABLE_SERVER)
     set(JSON_BuildTests OFF CACHE INTERNAL "")
     set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF CACHE BOOL "Disable cpp-httplib OpenSSL support" FORCE)
     set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF CACHE BOOL "Disable cpp-httplib zlib support" FORCE)
@@ -184,8 +184,9 @@ target_link_options(vlm-rknn PRIVATE
 # vlm-rknn-server
 # -----------------------------------------------------------------------------
 
-if(VLM_RKNN_ENABLE_SERVER AND NOT ANDROID)
+if(VLM_RKNN_ENABLE_SERVER)
     add_executable(vlm-rknn-server
+        cpp/src/registry.cc
         cpp/src/server.cc
     )
 

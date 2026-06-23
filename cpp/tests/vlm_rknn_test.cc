@@ -114,6 +114,83 @@ int main()
     expect(!llama_session.prompt_contains_image("<image>Describe this."),
            "llama should not treat image placeholders as multimodal prompts");
 
+    // INI-based model configuration.
+    {
+        const std::string ini =
+            "[qwen]\n"
+            "model_family=qwen2-vl\n"
+            "vision=/models/qwen/vision.rknn\n"
+            "llm=/models/qwen/language.rkllm\n"
+            "max_new_tokens=300\n"
+            "\n"
+            "; a text-only model\n"
+            "[chat]\n"
+            "model_family=llama\n"
+            "llm=/models/llama.rkllm\n"
+            "cores=2\n";
+
+        std::vector<vlm_rknn::NamedModelConfig> configs;
+        std::string error;
+        expect(vlm_rknn::parse_model_configs_from_ini(ini, configs, error),
+               "valid INI should parse: " + error);
+        expect(configs.size() == 2, "two models should be parsed");
+        expect(configs[0].model_id == "qwen", "first model should be the default 'qwen'");
+        expect(configs[0].config.model_family == vlm_rknn::ModelFamily::QwenVL2,
+               "qwen model family should parse");
+        expect(configs[0].config.vision_encoder_path.has_value() &&
+                   *configs[0].config.vision_encoder_path == "/models/qwen/vision.rknn",
+               "qwen vision path should be retained");
+        expect(configs[0].config.language_model_path == "/models/qwen/language.rkllm",
+               "qwen llm path should be retained");
+        expect(configs[0].config.max_new_tokens == 300, "qwen max_new_tokens should be 300");
+        expect(configs[1].model_id == "chat", "second model should be 'chat'");
+        expect(configs[1].config.model_family == vlm_rknn::ModelFamily::Llama,
+               "chat model family should be llama");
+        expect(!configs[1].config.vision_encoder_path.has_value(),
+               "llama model should have no vision path");
+        expect(configs[1].config.num_cores.has_value() && *configs[1].config.num_cores == 2,
+               "chat cores should be 2");
+    }
+
+    {
+        std::vector<vlm_rknn::NamedModelConfig> configs;
+        std::string error;
+        expect(!vlm_rknn::parse_model_configs_from_ini("", configs, error),
+               "empty INI should fail");
+        expect(!vlm_rknn::parse_model_configs_from_ini(
+                   "[m]\nmodel_family=qwen2-vl\nvision=/v.rknn\n", configs, error),
+               "missing llm should fail");
+        expect(!vlm_rknn::parse_model_configs_from_ini(
+                   "[m]\nllm=/m.rkllm\n", configs, error),
+               "vision model without vision encoder should fail");
+        expect(!vlm_rknn::parse_model_configs_from_ini(
+                   "[m]\nmodel_family=llama\nllm=/m.rkllm\nvision=/v.rknn\n", configs, error),
+               "vision key for llama should fail");
+        expect(!vlm_rknn::parse_model_configs_from_ini(
+                   "[m]\nmodel_family=llama\nllm=/m.rkllm\nbogus=1\n", configs, error),
+               "unknown key should fail");
+        expect(!vlm_rknn::parse_model_configs_from_ini(
+                   "[m]\nmodel_family=llama\nllm=/m.rkllm\ncores=5\n", configs, error),
+               "out-of-range cores should fail");
+        expect(!vlm_rknn::parse_model_configs_from_ini(
+                   "[m]\nllm=/a.rkllm\nmodel_family=llama\n[m]\nllm=/b.rkllm\nmodel_family=llama\n",
+                   configs, error),
+               "duplicate section should fail");
+    }
+
+    {
+        // A text-only single-model INI should parse and default correctly.
+        std::vector<vlm_rknn::NamedModelConfig> configs;
+        std::string error;
+        expect(vlm_rknn::parse_model_configs_from_ini(
+                   "[only]\nmodel_family=llama\nllm=/m.rkllm\n", configs, error),
+               "single llama model should parse: " + error);
+        expect(configs.size() == 1 && configs[0].model_id == "only",
+               "single model should be parsed and named");
+        expect(configs[0].config.max_new_tokens == 128 && configs[0].config.max_context_len == 2048,
+               "defaults should apply when keys are omitted");
+    }
+
     std::cout << "placeholder tests passed" << '\n';
     return 0;
 }

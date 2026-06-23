@@ -23,6 +23,9 @@ Others are in development:
   * [Dependencies](#dependencies)
 * [Linux CLI](#linux-cli)
   * [CMake Configuration](#cmake-configuration)
+* [HTTP Server](#http-server)
+  * [Configuration File](#configuration-file)
+  * [Endpoints](#endpoints)
 * [Android 14](#android-14)
   * [Test Frontend](#test-frontend)
   * [APK Installation](#apk-installation)
@@ -118,6 +121,75 @@ OpenCV is fetched when configuring CMake. Override the fetched release (default 
 You may also trim or expand the set of modules to be built with `-DQWEN_VL_RKNN_OPENCV_MODULES=<comma-separated-modules>`.
 
 OpenCV sample projects are disabled by default. The default OpenCV image codec configuration keeps PNG and JPEG enabled and disables optional non-PNG/JPEG codecs.
+
+## HTTP Server
+
+In addition to the CLI, this project builds `vlm-rknn-server`, a small HTTP server that exposes models over a JSON API. The server is built for both the native (Linux/aarch64) and Android targets, and is enabled by default. You can disable it with `-DVLM_RKNN_ENABLE_SERVER=OFF`.
+
+Unlike the CLI, the server does not take model arguments on the command line. Models are described in an INI configuration file, and the server is started with `--ini-file`:
+
+```bash
+./vlm-rknn-server --ini-file server.ini
+```
+
+Other options:
+
+| Option                       | Default   | Description                                                  |
+|------------------------------|-----------|--------------------------------------------------------------|
+| `--ini-file <path>`          | required  | Path to the INI configuration file describing the models.    |
+| `--host <address>`           | `0.0.0.0` | Address to bind.                                             |
+| `--port <port>`              | `8080`    | Port to listen on.                                           |
+| `--max-loaded-models <n>`    | `1`       | Maximum number of models held in NPU memory at once.         |
+| `-v`, `--verbose`            | off       | Enable verbose logging.                                      |
+
+### Configuration File
+
+Each `[model_id]` section defines one model. The section name is the identifier that clients pass as `model_id`, and the first model in the file is the default. The recognised keys mirror the CLI options, with underscores instead of hyphens:
+
+```ini
+[qwen2-vl]
+model_family=qwen2-vl
+vision=/models/qwen2-vl/vision.rknn
+llm=/models/qwen2-vl/Qwen2-VL-Instruct.rkllm
+max_new_tokens=300
+
+[chat]
+model_family=llama
+llm=/models/llama/Llama-3.2.rkllm
+```
+
+| Key               | Required              | Description                                                       |
+|-------------------|-----------------------|-------------------------------------------------------------------|
+| `model_family`    | no (default qwen2-vl) | One of `qwen2-vl`, `qwen2.5-vl`, `qwen3-vl`, `llama`, `smolvlm2`. |
+| `vision`          | vision models only    | Path to the vision encoder (`.rknn`).                             |
+| `llm`             | yes                   | Path to the language model (`.rkllm`).                            |
+| `max_new_tokens`  | no (default 128)      | Maximum tokens to generate.                                       |
+| `max_context_len` | no (default 2048)     | Maximum context length.                                           |
+| `cores`           | no                    | Number of NPU cores to use (1-3).                                 |
+
+The default model is loaded eagerly when the server starts. Other models are loaded on demand the first time they are requested. At most `--max-loaded-models` models are kept resident in NPU memory. When a new model must be loaded and the cache is full, the least recently used model is evicted.
+
+A complete example is provided in [`data/server.example.ini`](./data/server.example.ini).
+
+### Endpoints
+
+| Method | Path       | Description                                            |
+|--------|------------|--------------------------------------------------------|
+| `GET`  | `/health`  | Returns `{"ready": <bool>}` for the default model.     |
+| `GET`  | `/models`  | Returns the configured model ids and the default.      |
+| `POST` | `/query`   | Runs a query. See the request format below.            |
+
+A `/query` request body is a JSON object:
+
+```json
+{
+  "model_id": "qwen2-vl",
+  "prompt": "<image>What is in the image?",
+  "image": "data/cell.png"
+}
+```
+
+The `model_id` attribute is optional and selects which configured model to use, defaulting to the first model in the INI file. The `image` attribute is required only when `prompt` contains the model's image placeholder. On success the response is `{"text": "..."}`; errors are returned as `{"error": "..."}` with an appropriate status code.
 
 ## Android 14
 

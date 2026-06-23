@@ -16,9 +16,11 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <mutex>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -27,6 +29,7 @@
 #include <opencv2/imgcodecs.hpp>
 
 #include "logger.h"
+#include "registry.h"
 #include "vlm_rknn.h"
 
 namespace {
@@ -36,7 +39,8 @@ using Json = nlohmann::json;
 struct ServerOptions {
     std::string host = "0.0.0.0";
     int port = 8080;
-    vlm_rknn::ModelConfig model;
+    std::string ini_file_path;
+    int max_loaded_models = 1;
 };
 
 struct QueryResult {
@@ -47,11 +51,12 @@ struct QueryResult {
 void print_usage(const char* program)
 {
     LOG(ERROR) << "Usage: " << program
-               << " [-v|--verbose] [--host <address>] [--port <port>] [--cores <num_cores>]"
-               << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl|llama|smolvlm2>]"
-               << " [--max-new-tokens <tokens>] [--max-context-len <tokens>]"
-               << " --llm <language_model_path>"
-               << " [--vision <vision_encoder_path>]";
+               << " [-v|--verbose] [--host <address>] [--port <port>]"
+               << " [--max-loaded-models <count>]"
+               << " --ini-file <path>";
+    LOG(ERROR) << "The INI file defines one or more models, one per [model_id] section.";
+    LOG(ERROR) << "Recognised keys: model_family, vision, llm, max_new_tokens, max_context_len, cores.";
+    LOG(ERROR) << "The first model in the file is the default; requests may select another via 'model_id'.";
 }
 
 bool get_option_value(int argc, char** argv, int& index, const char* option, const char*& value)
@@ -81,9 +86,6 @@ bool parse_int_option(const char* option, const char* value, int min_value, int 
 
 bool parse_options(int argc, char** argv, ServerOptions& options)
 {
-    std::optional<std::string> vision_encoder_path;
-    std::optional<std::string> language_model_path;
-
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
             Logger::configure(std::cout, Logger::Level::Verbose);
@@ -111,63 +113,22 @@ bool parse_options(int argc, char** argv, ServerOptions& options)
             }
             continue;
         }
-        if (strcmp(argv[i], "--cores") == 0) {
+        if (strcmp(argv[i], "--max-loaded-models") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--cores", value)) {
+            if (!get_option_value(argc, argv, i, "--max-loaded-models", value)) {
                 return false;
             }
-            int parsed = 0;
-            if (!parse_int_option("--cores", value, 1, 3, parsed)) {
-                return false;
-            }
-            options.model.num_cores = parsed;
-            continue;
-        }
-        if (strcmp(argv[i], "--model-family") == 0) {
-            const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--model-family", value)) {
-                return false;
-            }
-            if (!vlm_rknn::parse_model_family(value, options.model.model_family)) {
-                LOG(WARNING) << "Invalid model family specified: " << value;
+            if (!parse_int_option("--max-loaded-models", value, 1, INT_MAX, options.max_loaded_models)) {
                 return false;
             }
             continue;
         }
-        if (strcmp(argv[i], "--max-new-tokens") == 0) {
+        if (strcmp(argv[i], "--ini-file") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--max-new-tokens", value)) {
+            if (!get_option_value(argc, argv, i, "--ini-file", value)) {
                 return false;
             }
-            if (!parse_int_option("--max-new-tokens", value, 1, INT_MAX, options.model.max_new_tokens)) {
-                return false;
-            }
-            continue;
-        }
-        if (strcmp(argv[i], "--max-context-len") == 0) {
-            const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--max-context-len", value)) {
-                return false;
-            }
-            if (!parse_int_option("--max-context-len", value, 1, INT_MAX, options.model.max_context_len)) {
-                return false;
-            }
-            continue;
-        }
-        if (strcmp(argv[i], "--vision") == 0) {
-            const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--vision", value)) {
-                return false;
-            }
-            vision_encoder_path = value;
-            continue;
-        }
-        if (strcmp(argv[i], "--llm") == 0) {
-            const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--llm", value)) {
-                return false;
-            }
-            language_model_path = value;
+            options.ini_file_path = value;
             continue;
         }
 
@@ -175,26 +136,25 @@ bool parse_options(int argc, char** argv, ServerOptions& options)
         return false;
     }
 
-    if (!language_model_path.has_value() || language_model_path->empty()) {
-        LOG(WARNING) << "Missing required --llm <language_model_path> argument";
-        return false;
-    }
-    options.model.language_model_path = *language_model_path;
-
-    const bool uses_vision_encoder = vlm_rknn::model_family_uses_vision_encoder(options.model.model_family);
-    if (uses_vision_encoder) {
-        if (!vision_encoder_path.has_value() || vision_encoder_path->empty()) {
-            LOG(WARNING) << "Missing required --vision <vision_encoder_path> argument for "
-                         << vlm_rknn::model_family_name(options.model.model_family);
-            return false;
-        }
-        options.model.vision_encoder_path = *vision_encoder_path;
-    } else if (vision_encoder_path.has_value() && !vision_encoder_path->empty()) {
-        LOG(WARNING) << "--vision is not supported for "
-                     << vlm_rknn::model_family_name(options.model.model_family);
+    if (options.ini_file_path.empty()) {
+        LOG(WARNING) << "Missing required --ini-file <path> argument";
         return false;
     }
 
+    return true;
+}
+
+bool read_file(const std::string& path, std::string& contents)
+{
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        LOG(ERROR) << "Could not open INI file: " << path;
+        return false;
+    }
+
+    std::ostringstream stream;
+    stream << file.rdbuf();
+    contents = stream.str();
     return true;
 }
 
@@ -244,11 +204,10 @@ bool encode_image(vlm_rknn::Session& session, const std::string& image_path, std
     return true;
 }
 
-QueryResult run_query(vlm_rknn::Session& session, std::mutex& session_mutex, const Json& request)
+// Run a query against an already-resolved, ready session. The caller is
+// responsible for holding the registry mutex for the duration of the call.
+QueryResult run_query(vlm_rknn::Session& session, const Json& request)
 {
-    if (!request.is_object()) {
-        return {400, error_body("request body must be a JSON object")};
-    }
     if (!request.contains("prompt") || !request["prompt"].is_string()) {
         return {400, error_body("request field 'prompt' must be a string")};
     }
@@ -259,7 +218,6 @@ QueryResult run_query(vlm_rknn::Session& session, std::mutex& session_mutex, con
             ? std::make_optional(request["image"].get<std::string>())
             : std::nullopt;
 
-    std::lock_guard<std::mutex> lock(session_mutex);
     if (!session.is_ready()) {
         return {503, error_body("session is not ready")};
     }
@@ -304,21 +262,55 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    vlm_rknn::Session session(options.model);
-    if (session.init() != 0 || !session.is_ready()) {
-        LOG(ERROR) << "Session initialization failed.";
+    std::string ini_text;
+    if (!read_file(options.ini_file_path, ini_text)) {
         return 1;
     }
 
-    std::mutex session_mutex;
+    std::vector<vlm_rknn::NamedModelConfig> configs;
+    std::string parse_error;
+    if (!vlm_rknn::parse_model_configs_from_ini(ini_text, configs, parse_error)) {
+        LOG(ERROR) << "Failed to parse " << options.ini_file_path << ": " << parse_error;
+        return 1;
+    }
+
+    LOG(INFO) << "Loaded " << configs.size() << " model definition(s) from " << options.ini_file_path;
+    for (const auto& named : configs) {
+        LOG(INFO) << "  " << named.model_id
+                  << " (" << vlm_rknn::model_family_name(named.config.model_family) << ")"
+                  << (named.model_id == configs.front().model_id ? " [default]" : "");
+    }
+
+    Registry registry(std::move(configs), static_cast<size_t>(options.max_loaded_models));
+    std::mutex registry_mutex;
+
+    // Eagerly load the default model so the server is ready to serve immediately.
+    {
+        std::lock_guard<std::mutex> lock(registry_mutex);
+        vlm_rknn::Session* default_session = registry.acquire(registry.default_model_id());
+        if (default_session == nullptr) {
+            LOG(ERROR) << "Failed to load default model '" << registry.default_model_id() << "'";
+            return 1;
+        }
+        LOG(INFO) << "Default model ready: " << default_session->describe();
+    }
+
     httplib::Server server;
 
-    server.Get("/health", [&session, &session_mutex](const httplib::Request&, httplib::Response& response) {
-        std::lock_guard<std::mutex> lock(session_mutex);
-        send_json(response, 200, Json{{"ready", session.is_ready()}});
+    server.Get("/health", [&registry, &registry_mutex](const httplib::Request&, httplib::Response& response) {
+        std::lock_guard<std::mutex> lock(registry_mutex);
+        send_json(response, 200, Json{{"ready", registry.default_ready()}});
     });
 
-    server.Post("/query", [&session, &session_mutex](const httplib::Request& request, httplib::Response& response) {
+    server.Get("/models", [&registry](const httplib::Request&, httplib::Response& response) {
+        Json models = Json::array();
+        for (const auto& id : registry.model_ids()) {
+            models.push_back(id);
+        }
+        send_json(response, 200, Json{{"models", models}, {"default", registry.default_model_id()}});
+    });
+
+    server.Post("/query", [&registry, &registry_mutex](const httplib::Request& request, httplib::Response& response) {
         Json body;
         try {
             body = Json::parse(request.body);
@@ -327,13 +319,38 @@ int main(int argc, char** argv)
             return;
         }
 
-        const QueryResult result = run_query(session, session_mutex, body);
+        if (!body.is_object()) {
+            send_json(response, 400, error_body("request body must be a JSON object"));
+            return;
+        }
+
+        std::string model_id = registry.default_model_id();
+        if (body.contains("model_id")) {
+            if (!body["model_id"].is_string()) {
+                send_json(response, 400, error_body("request field 'model_id' must be a string"));
+                return;
+            }
+            model_id = body["model_id"].get<std::string>();
+        }
+
+        std::lock_guard<std::mutex> lock(registry_mutex);
+        if (!registry.has_model(model_id)) {
+            send_json(response, 400, error_body("unknown model_id: " + model_id));
+            return;
+        }
+
+        vlm_rknn::Session* session = registry.acquire(model_id);
+        if (session == nullptr) {
+            send_json(response, 503, error_body("failed to load model '" + model_id + "'"));
+            return;
+        }
+
+        const QueryResult result = run_query(*session, body);
         send_json(response, result.status, result.body);
     });
 
-    LOG(INFO) << "Session initialized successfully.";
-    LOG(INFO) << session.describe();
-    LOG(INFO) << "Starting HTTP server on " << options.host << ":" << options.port;
+    LOG(INFO) << "Starting HTTP server on " << options.host << ":" << options.port
+              << " (max " << options.max_loaded_models << " model(s) resident)";
 
     if (!server.listen(options.host, options.port)) {
         LOG(ERROR) << "Failed to listen on " << options.host << ":" << options.port;

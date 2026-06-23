@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <opencv2/core.hpp>
 #include <rknn_api.h>
@@ -66,6 +67,28 @@ struct ModelConfig {
 
     std::optional<int> num_cores;
 };
+
+// A ModelConfig together with the identifier it was defined under (the INI
+// section name). The server uses the identifier to route requests.
+struct NamedModelConfig {
+    std::string model_id;
+    ModelConfig config;
+};
+
+// Parse an INI document into an ordered list of named model configurations.
+//
+// Each [section] defines one model, keyed by the section name. The recognised
+// keys mirror the command-line options, with underscores instead of hyphens:
+//   model_family, vision, llm, max_new_tokens, max_context_len, cores
+// `llm` is required, and `vision` is required for model families that use a
+// vision encoder (and rejected for those that do not). The order of the result
+// matches the order of the sections, so the first entry is the default model.
+//
+// On failure, returns false and populates `error` with a human-readable message.
+bool parse_model_configs_from_ini(
+    const std::string& ini_text,
+    std::vector<NamedModelConfig>& out,
+    std::string& error);
 
 bool parse_model_family(std::string_view value, ModelFamily& family);
 const char* model_family_name(ModelFamily family);

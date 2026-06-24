@@ -26,6 +26,7 @@ Others are in development:
 * [HTTP Server](#http-server)
   * [Configuration File](#configuration-file)
   * [Endpoints](#endpoints)
+  * [Image Query Script](#image-query-script)
 * [Android 14](#android-14)
   * [Test Frontend](#test-frontend)
   * [APK Installation](#apk-installation)
@@ -253,6 +254,21 @@ A successful response looks like:
 
 ```json
 {"text": "The image shows a single battery cell on a white background."}
+```
+
+#### Image Query Script
+
+For convenience, [`scripts/send-query.py`](./scripts/send-query.py) sends an image query without hand-building the request. It reads a local image, base64-encodes it, and uploads it as `image_data`, so the client does not need to share a filesystem with the server. It depends only on the Python standard library.
+
+```bash
+./scripts/send-query.py data/cell.png "What is in the image?"
+```
+
+The `<image>` placeholder is added to the prompt automatically if it is missing. Select a non-default model with `--model-id`, and point at a remote server with `--host` and `--port`:
+
+```bash
+./scripts/send-query.py --host 192.168.1.50 --model-id qwen2-vl \
+  data/pythagoras.png "Transcribe any text in the image."
 ```
 
 ## Android 14

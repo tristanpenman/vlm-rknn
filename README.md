@@ -185,11 +185,75 @@ A `/query` request body is a JSON object:
 {
   "model_id": "qwen2-vl",
   "prompt": "<image>What is in the image?",
-  "image": "data/cell.png"
+  "image_data": "<base64-encoded image bytes>"
 }
 ```
 
-The `model_id` attribute is optional and selects which configured model to use, defaulting to the first model in the INI file. The `image` attribute is required only when `prompt` contains the model's image placeholder. On success the response is `{"text": "..."}`; errors are returned as `{"error": "..."}` with an appropriate status code.
+The `model_id` attribute is optional and selects which configured model to use, defaulting to the first model in the INI file.
+
+When `prompt` contains the model's image placeholder, the image is supplied via `image_data`: the image bytes themselves, base64-encoded and uploaded in the request. Uploaded images may be at most **1 MB** (decoded); larger uploads are rejected with `413 Payload Too Large`. PNG and JPEG are supported.
+
+The server intentionally does not accept a server-side image path; the image must always be uploaded by the client, so a request can never cause the server to read arbitrary files from its own disk.
+
+On success the response is `{"text": "..."}`; errors are returned as `{"error": "..."}` with an appropriate status code.
+
+#### Examples
+
+Check that the default model is loaded and ready:
+
+```bash
+curl http://<host>:8080/health
+```
+
+List the configured models and the default:
+
+```bash
+curl http://<host>:8080/models
+```
+
+Query the default Qwen2-VL model with an image. The image bytes are base64-encoded and uploaded as `image_data`, and `prompt` includes the `<image>` placeholder so the vision encoder processes the image before the language model runs. The image must be at most 1 MB once decoded:
+
+```bash
+curl http://<host>:8080/query \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg img "$(base64 -i data/cell.png)" \
+    '{prompt: "<image>What is in the image?", image_data: $img}')"
+```
+
+Without `jq`, you can build the same request inline:
+
+```bash
+IMAGE_DATA=$(base64 -i data/cell.png | tr -d '\n')
+curl http://<host>:8080/query \
+  -H 'Content-Type: application/json' \
+  -d "{\"prompt\": \"<image>What is in the image?\", \"image_data\": \"${IMAGE_DATA}\"}"
+```
+
+Select a specific model with `model_id` and ask a different question about the same image:
+
+```bash
+curl http://<host>:8080/query \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg img "$(base64 -i data/cell.png)" \
+    '{model_id: "qwen2-vl", prompt: "<image>Read any text visible in the image and transcribe it.", image_data: $img}')"
+```
+
+A text-only query omits the `image_data` attribute and the `<image>` placeholder:
+
+```bash
+curl http://<host>:8080/query \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model_id": "chat",
+    "prompt": "Summarise the plot of Hamlet in two sentences."
+  }'
+```
+
+A successful response looks like:
+
+```json
+{"text": "The image shows a single battery cell on a white background."}
+```
 
 ## Android 14
 

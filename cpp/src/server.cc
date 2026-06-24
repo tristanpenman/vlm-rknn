@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cctype>
 #include <cerrno>
 #include <climits>
 #include <cstdlib>
@@ -19,7 +20,6 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -171,14 +171,49 @@ void send_json(httplib::Response& response, int status, const Json& body)
     response.set_content(body.dump(), "application/json");
 }
 
-bool encode_image(vlm_rknn::Session& session, const std::string& image_path, std::vector<float>& image_embedding)
-{
-    cv::Mat image = cv::imread(image_path, cv::IMREAD_COLOR);
-    if (image.empty()) {
-        LOG(ERROR) << "Could not open or find the image: " << image_path;
-        return false;
-    }
+// Maximum size, in bytes, of an uploaded (base64-decoded) image.
+constexpr size_t kMaxUploadedImageBytes = 1024 * 1024;
 
+// Decode a standard base64 string (no URL-safe alphabet). Whitespace is
+// tolerated and '=' padding terminates decoding. Returns false on an invalid
+// character.
+bool base64_decode(const std::string& input, std::string& output)
+{
+    const auto decode_char = [](unsigned char c) -> int {
+        if (c >= 'A' && c <= 'Z') return c - 'A';
+        if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+        if (c >= '0' && c <= '9') return c - '0' + 52;
+        if (c == '+') return 62;
+        if (c == '/') return 63;
+        return -1;
+    };
+
+    output.clear();
+    int val = 0;
+    int bits = -8;
+    for (const unsigned char c : input) {
+        if (c == '=') {
+            break;
+        }
+        if (std::isspace(c)) {
+            continue;
+        }
+        const int d = decode_char(c);
+        if (d < 0) {
+            return false;
+        }
+        val = (val << 6) | d;
+        bits += 6;
+        if (bits >= 0) {
+            output.push_back(static_cast<char>((val >> bits) & 0xFF));
+            bits -= 8;
+        }
+    }
+    return true;
+}
+
+bool encode_image(vlm_rknn::Session& session, const cv::Mat& image, std::vector<float>& image_embedding)
+{
     const auto& encoder = session.vision_encoder();
     cv::Mat preprocessed;
     int ret = vlm_rknn::preprocess_image_for_vision_encoder(
@@ -215,22 +250,44 @@ QueryResult run_query(vlm_rknn::Session& session, const Json& request)
     }
 
     const std::string prompt = request["prompt"].get<std::string>();
-    const std::optional<std::string> image_path =
-        request.contains("image") && request["image"].is_string()
-            ? std::make_optional(request["image"].get<std::string>())
-            : std::nullopt;
 
     if (!session.is_ready()) {
         return {503, error_body("session is not ready")};
     }
 
+    const bool has_image_data =
+        request.contains("image_data") && !request["image_data"].is_null();
+
     std::vector<float> image_embedding;
     float* image_embedding_data = nullptr;
     if (session.prompt_contains_image(prompt)) {
-        if (!image_path.has_value() || image_path->empty()) {
-            return {400, error_body("prompt references an image but request field 'image' was not provided")};
+        cv::Mat image;
+        // Images must be uploaded as base64-encoded bytes via 'image_data'.
+        // Referencing a server-side path is deliberately not supported, as it
+        // would let a client read arbitrary files from the server's disk.
+        if (!has_image_data) {
+            return {400, error_body("prompt references an image but 'image_data' was not provided")};
         }
-        if (!encode_image(session, *image_path, image_embedding)) {
+        if (!request["image_data"].is_string()) {
+            return {400, error_body("request field 'image_data' must be a base64-encoded string")};
+        }
+        std::string image_bytes;
+        if (!base64_decode(request["image_data"].get<std::string>(), image_bytes)) {
+            return {400, error_body("request field 'image_data' is not valid base64")};
+        }
+        if (image_bytes.empty()) {
+            return {400, error_body("request field 'image_data' decoded to zero bytes")};
+        }
+        if (image_bytes.size() > kMaxUploadedImageBytes) {
+            return {413, error_body("uploaded image exceeds the maximum size of 1 MB")};
+        }
+        const std::vector<uchar> buffer(image_bytes.begin(), image_bytes.end());
+        image = cv::imdecode(buffer, cv::IMREAD_COLOR);
+        if (image.empty()) {
+            return {400, error_body("could not decode uploaded image data")};
+        }
+
+        if (!encode_image(session, image, image_embedding)) {
             return {500, error_body("image encoding failed")};
         }
         image_embedding_data = image_embedding.data();

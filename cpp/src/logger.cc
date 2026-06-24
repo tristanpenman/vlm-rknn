@@ -40,7 +40,7 @@ const char* level_label(const Logger::Level level)
         return "U";
     }
 }
-} // namespace
+}  // namespace
 
 Logger::Logger(string name)
   : name_(std::move(name))

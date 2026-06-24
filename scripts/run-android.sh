@@ -120,7 +120,7 @@ download "${VISION_FILE}"
 # ADB connect
 # -----------------------------------------------------------------------------
 
-echo "=== Connect to ${DEVICE_IP} ==="
+echo "=== Connect to device ==="
 
 adb connect "${DEVICE_IP}" >/dev/null || true
 
@@ -146,7 +146,7 @@ ADB=(adb -s "${SERIAL}")
 # Generate server configuration
 # -----------------------------------------------------------------------------
 
-echo "=== Generate server.ini ==="
+echo "=== Generate server configuration ==="
 
 REMOTE_MODEL_DIR="${REMOTE_DIR}/models/qwen2-vl"
 REMOTE_LIB_DIR="${REMOTE_DIR}/lib"
@@ -161,10 +161,40 @@ max_new_tokens=300
 INI
 
 # -----------------------------------------------------------------------------
+# Sync helpers
+# -----------------------------------------------------------------------------
+
+# Local file size in bytes (portable across macOS and Linux).
+local_size() {
+  stat -c%s "$1" 2>/dev/null || stat -f%z "$1"
+}
+
+# Push a model file only if the device copy is missing or a different size.
+# Large model files are expensive to transfer, so we compare byte size, which
+# is instant on both ends and a strong signal for these immutable files.
+sync_model() {
+  local src="$1"
+  local dst="$2"
+  local name lsize rsize
+  name="$(basename "${dst}")"
+
+  lsize="$(local_size "${src}")"
+  rsize="$("${ADB[@]}" shell "stat -c%s '${dst}' 2>/dev/null" | tr -d '\r')"
+
+  if [[ "${rsize}" == "${lsize}" ]]; then
+    echo "Up to date (${lsize} bytes): ${dst}"
+    return
+  fi
+
+  echo "Pushing ${name} (local ${lsize} bytes, remote ${rsize:-missing}) ..."
+  "${ADB[@]}" push "${src}" "${dst}"
+}
+
+# -----------------------------------------------------------------------------
 # Push files
 # -----------------------------------------------------------------------------
 
-echo "=== Pushing files to ${SERIAL}:${REMOTE_DIR} ==="
+echo "=== Push files to device ==="
 
 "${ADB[@]}" shell mkdir -p "${REMOTE_MODEL_DIR}" "${REMOTE_LIB_DIR}"
 
@@ -175,8 +205,9 @@ echo "=== Pushing files to ${SERIAL}:${REMOTE_DIR} ==="
 "${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/lib-android/arm64-v8a/librkllmrt.so" "${REMOTE_LIB_DIR}/"
 "${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/lib-android/arm64-v8a/libomp.so" "${REMOTE_LIB_DIR}/"
 
-"${ADB[@]}" push "${MODEL_CACHE}/${LLM_FILE}" "${REMOTE_MODEL_DIR}/"
-"${ADB[@]}" push "${MODEL_CACHE}/${VISION_FILE}" "${REMOTE_MODEL_DIR}/"
+# Model files are large; only push when missing or changed on the device.
+sync_model "${MODEL_CACHE}/${LLM_FILE}" "${REMOTE_MODEL_DIR}/${LLM_FILE}"
+sync_model "${MODEL_CACHE}/${VISION_FILE}" "${REMOTE_MODEL_DIR}/${VISION_FILE}"
 
 "${ADB[@]}" shell chmod 755 "${REMOTE_DIR}/vlm-rknn-server"
 

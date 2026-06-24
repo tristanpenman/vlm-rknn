@@ -31,21 +31,21 @@ namespace {
 
 void print_usage(const char* program)
 {
-    LOG(ERROR) << "Usage: " << program
-               << " [-v|--verbose] [--cores <num_cores>]"
-               << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl|llama|smolvlm2>]"
-               << " [--max-new-tokens <tokens>] [--max-context-len <tokens>]"
-               << " --llm <language_model_path>"
-               << " [--vision <vision_encoder_path> --image <image_path>]"
-               << " [--prompt <prompt>]";
-    LOG(ERROR) << "--vision and --image are required for vision model families and unsupported for llama.";
-    LOG(ERROR) << "If --prompt is omitted, an interactive REPL is started.";
+    std::cout << "Usage: " << program
+              << " [-v|--verbose] [--cores <num_cores>]"
+              << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl|llama|smolvlm2>]"
+              << " [--max-new-tokens <tokens>] [--max-context-len <tokens>]"
+              << " --llm <language_model_path>"
+              << " [--vision <vision_encoder_path> --image <image_path>]"
+              << " [--prompt <prompt>]\n";
+    std::cout << "--vision and --image are required for vision model families and unsupported for llama.\n";
+    std::cout << "If --prompt is omitted, an interactive REPL is started.\n";
 }
 
 bool get_option_value(int argc, char** argv, int& index, const char* option, const char*& value)
 {
     if (index + 1 >= argc) {
-        LOG(WARNING) << option << " option requires an argument";
+        std::cout << option << " option requires an argument\n";
         return false;
     }
     value = argv[++index];
@@ -58,8 +58,8 @@ bool parse_int_option(const char* option, const char* value, int min_value, int 
     char* end = nullptr;
     const long result = std::strtol(value, &end, 10);
     if (value == end || *end != '\0' || errno == ERANGE || result < min_value || result > max_value) {
-        LOG(WARNING) << "Invalid value for " << option << ": " << value
-                     << " (expected " << min_value << "-" << max_value << ")";
+        std::cout << "Invalid value for " << option << ": " << value
+                  << " (expected " << min_value << "-" << max_value << ")\n";
         return false;
     }
 
@@ -105,13 +105,13 @@ int main(int argc, char** argv)
         if (strcmp(argv[i], "--model-family") == 0) {
             const char* value = nullptr;
             if (!get_option_value(argc, argv, i, "--model-family", value)) {
-                LOG(WARNING) << "--model-family option requires one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2";
+                std::cout << "--model-family option requires one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2\n";
                 return -1;
             }
             vlm_rknn::ModelFamily parsed_family;
             if (!vlm_rknn::parse_model_family(value, parsed_family)) {
-                LOG(WARNING) << "Invalid model family specified: " << value;
-                LOG(WARNING) << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2";
+                std::cout << "Invalid model family specified: " << value << "\n";
+                std::cout << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2\n";
                 return -1;
             }
             model_family = parsed_family;
@@ -174,13 +174,13 @@ int main(int argc, char** argv)
             continue;
         }
 
-        LOG(WARNING) << "Unexpected positional argument or unknown option: " << argv[i];
+        std::cout << "Unexpected positional argument or unknown option: " << argv[i] << "\n";
         print_usage(argv[0]);
         return -1;
     }
 
     if (!language_model_path.has_value() || language_model_path->empty()) {
-        LOG(WARNING) << "Missing required --llm <language_model_path> argument";
+        std::cout << "Missing required --llm <language_model_path> argument\n";
         print_usage(argv[0]);
         return 1;
     }
@@ -193,28 +193,28 @@ int main(int argc, char** argv)
     const bool uses_vision_encoder = vlm_rknn::model_family_uses_vision_encoder(config.model_family);
     if (uses_vision_encoder) {
         if (!vision_encoder_path.has_value() || vision_encoder_path->empty()) {
-            LOG(WARNING) << "Missing required --vision <vision_encoder_path> argument for "
-                         << vlm_rknn::model_family_name(config.model_family);
+            std::cout << "Missing required --vision <vision_encoder_path> argument for "
+                      << vlm_rknn::model_family_name(config.model_family) << "\n";
             print_usage(argv[0]);
             return 1;
         }
         if (!image_path.has_value() || image_path->empty()) {
-            LOG(WARNING) << "Missing required --image <image_path> argument for "
-                         << vlm_rknn::model_family_name(config.model_family);
+            std::cout << "Missing required --image <image_path> argument for "
+                      << vlm_rknn::model_family_name(config.model_family) << "\n";
             print_usage(argv[0]);
             return 1;
         }
         config.vision_encoder_path = *vision_encoder_path;
     } else {
         if (vision_encoder_path.has_value() && !vision_encoder_path->empty()) {
-            LOG(WARNING) << "--vision is not supported for "
-                         << vlm_rknn::model_family_name(config.model_family);
+            std::cout << "--vision is not supported for "
+                      << vlm_rknn::model_family_name(config.model_family) << "\n";
             print_usage(argv[0]);
             return 1;
         }
         if (image_path.has_value() && !image_path->empty()) {
-            LOG(WARNING) << "--image is not supported for "
-                         << vlm_rknn::model_family_name(config.model_family);
+            std::cout << "--image is not supported for "
+                      << vlm_rknn::model_family_name(config.model_family) << "\n";
             print_usage(argv[0]);
             return 1;
         }

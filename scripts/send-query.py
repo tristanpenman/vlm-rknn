@@ -13,16 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Send an image query to a running vlm-rknn-server instance.
+"""Send a query to a running vlm-rknn-server instance.
 
-The image is read locally, base64-encoded, and uploaded in the request body as
+The query may optionally include an image. When `--image` is supplied, the
+image is read locally, base64-encoded, and uploaded in the request body as
 `image_data`, so the client does not need to share a filesystem with the
-server. The server limits uploads to 1 MB once decoded.
+server. The server limits uploads to 1 MB once decoded. When `--image` is
+omitted, the query is sent as a plain text request.
 
 Examples:
-    ./scripts/send-query.py data/cell.png "What is in the image?"
+    ./scripts/send-query.py "Tell me a joke."
+    ./scripts/send-query.py --image data/cell.png "What is in the image?"
     ./scripts/send-query.py --host 192.168.1.50 --model-id qwen2-vl \\
-        data/pythagoras.png "Transcribe any text in the image."
+        --image data/pythagoras.png "Transcribe any text in the image."
 """
 
 import argparse
@@ -42,9 +45,12 @@ IMAGE_PLACEHOLDER = "<image>"
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(
-        description="Send an image query to vlm-rknn-server.")
-    parser.add_argument("image", help="Path to a local image file (PNG or JPEG).")
-    parser.add_argument("query", help="Text query to ask about the image.")
+        description="Send a query to vlm-rknn-server, optionally with an image.")
+    parser.add_argument("query", help="Text query to send to the server.")
+    parser.add_argument("--image",
+                        help="Path to a local image file (PNG or JPEG) to "
+                             "include with the query. If omitted, the query is "
+                             "sent as a plain text request.")
     parser.add_argument("--model-id",
                         help="Model id to use; defaults to the server's default model.")
     parser.add_argument("--host", default="localhost",
@@ -57,6 +63,12 @@ def parse_args(argv):
 
 
 def build_request_body(args):
+    if args.image is None:
+        body = {"prompt": args.query}
+        if args.model_id:
+            body["model_id"] = args.model_id
+        return body
+
     with open(args.image, "rb") as image_file:
         image_bytes = image_file.read()
 

@@ -94,7 +94,7 @@ endif()
 # -----------------------------------------------------------------------------
 
 if(VLM_RKNN_ENABLE_OPENCV)
-    include(cmake/thirdparty/OpenCV.cmake)
+    include(cmake/OpenCV.cmake)
 endif()
 
 # -----------------------------------------------------------------------------

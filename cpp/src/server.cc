@@ -36,14 +36,16 @@ namespace {
 
 using Json = nlohmann::json;
 
-struct ServerOptions {
+struct ServerOptions
+{
     std::string host = "0.0.0.0";
     int port = 8080;
     std::string ini_file_path;
     int max_loaded_models = 1;
 };
 
-struct QueryResult {
+struct QueryResult
+{
     int status = 200;
     Json body;
 };
@@ -88,7 +90,7 @@ bool parse_options(int argc, char** argv, ServerOptions& options)
 {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
-            Logger::configure(std::cout, Logger::Level::Verbose);
+            Logger::configure(std::cout, Logger::Level::kVerbose);
             continue;
         }
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {

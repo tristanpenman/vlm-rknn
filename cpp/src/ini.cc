@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "ini.h"
-
 #include <cctype>
 #include <sstream>
+
+#include "ini.h"
 
 namespace ini {
 

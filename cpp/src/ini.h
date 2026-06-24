@@ -23,7 +23,8 @@ namespace ini {
 
 // A single [section] from an INI document, holding key/value entries in the
 // order they appeared. Keys within a section are unique (enforced by parse()).
-struct Section {
+struct Section
+{
     std::string name;
     std::vector<std::pair<std::string, std::string>> entries;
 
@@ -33,7 +34,8 @@ struct Section {
 
 // A parsed INI document. Sections are kept in the order they appeared, so the
 // first section in the file is sections.front().
-struct Document {
+struct Document
+{
     std::vector<Section> sections;
 };
 

@@ -21,7 +21,7 @@ int main()
     expect(!empty_session.is_ready(), "empty session should not be ready");
 
     vlm_rknn::ModelConfig config;
-    expect(config.model_family == vlm_rknn::ModelFamily::QwenVL2,
+    expect(config.model_family == vlm_rknn::ModelFamily::kQwenVL2,
            "default model family should be Qwen2-VL");
     config.vision_encoder_path = "/models/qwen-vl/vision_encoder.rknn";
     config.language_model_path = "/models/qwen-vl/language_model.rkllm";
@@ -41,45 +41,45 @@ int main()
 
     vlm_rknn::ModelFamily family;
     expect(vlm_rknn::parse_model_family("llama", family), "llama should parse");
-    expect(family == vlm_rknn::ModelFamily::Llama, "llama should map to Llama family");
+    expect(family == vlm_rknn::ModelFamily::kLlama, "llama should map to Llama family");
     expect(vlm_rknn::parse_model_family("smol-vlm2", family), "smol-vlm2 alias should parse");
-    expect(family == vlm_rknn::ModelFamily::SmolVLM2, "smol-vlm2 should map to SmolVLM2 family");
+    expect(family == vlm_rknn::ModelFamily::kSmolVLM2, "smol-vlm2 should map to SmolVLM2 family");
     expect(!vlm_rknn::parse_model_family("not-a-family", family), "unknown family should not parse");
 
-    expect(!vlm_rknn::model_family_uses_vision_encoder(vlm_rknn::ModelFamily::Llama),
+    expect(!vlm_rknn::model_family_uses_vision_encoder(vlm_rknn::ModelFamily::kLlama),
            "llama should not require a vision encoder");
-    expect(!vlm_rknn::model_family_supports_multimodal(vlm_rknn::ModelFamily::Llama),
+    expect(!vlm_rknn::model_family_supports_multimodal(vlm_rknn::ModelFamily::kLlama),
            "llama should not support multimodal input");
-    expect(vlm_rknn::model_family_uses_vision_encoder(vlm_rknn::ModelFamily::QwenVL2),
+    expect(vlm_rknn::model_family_uses_vision_encoder(vlm_rknn::ModelFamily::kQwenVL2),
            "Qwen2-VL should require a vision encoder");
-    expect(vlm_rknn::model_family_uses_vision_encoder(vlm_rknn::ModelFamily::SmolVLM2),
+    expect(vlm_rknn::model_family_uses_vision_encoder(vlm_rknn::ModelFamily::kSmolVLM2),
            "SmolVLM2 should require a vision encoder");
-    expect(vlm_rknn::model_family_supports_multimodal(vlm_rknn::ModelFamily::SmolVLM2),
+    expect(vlm_rknn::model_family_supports_multimodal(vlm_rknn::ModelFamily::kSmolVLM2),
            "SmolVLM2 should be registered as multimodal");
-    expect(std::string(vlm_rknn::model_family_image_placeholder(vlm_rknn::ModelFamily::QwenVL2)) == "<image>",
+    expect(std::string(vlm_rknn::model_family_image_placeholder(vlm_rknn::ModelFamily::kQwenVL2)) == "<image>",
            "Qwen2-VL image placeholder should be exposed");
-    expect(std::string(vlm_rknn::model_family_image_placeholder(vlm_rknn::ModelFamily::Llama)).empty(),
+    expect(std::string(vlm_rknn::model_family_image_placeholder(vlm_rknn::ModelFamily::kLlama)).empty(),
            "llama image placeholder should be empty");
 
     expect(session.prompt_contains_image("<image>Describe this."), "Qwen2-VL should detect its image placeholder");
     expect(!session.prompt_contains_image("Describe this."), "Qwen2-VL should allow plain text prompts");
 
     const auto& qwen_preprocess =
-        vlm_rknn::model_family_image_preprocess_profile(vlm_rknn::ModelFamily::QwenVL2);
-    expect(qwen_preprocess.resize_mode == vlm_rknn::ResizeMode::PadToSquare,
+        vlm_rknn::model_family_image_preprocess_profile(vlm_rknn::ModelFamily::kQwenVL2);
+    expect(qwen_preprocess.resize_mode == vlm_rknn::ResizeMode::kPadToSquare,
            "Qwen2-VL should pad images to square");
     expect(qwen_preprocess.rgb, "Qwen2-VL should request RGB encoder input");
     expect(!qwen_preprocess.normalize_in_host, "Qwen2-VL should not normalize in host code");
 
     const auto& smol_preprocess =
-        vlm_rknn::model_family_image_preprocess_profile(vlm_rknn::ModelFamily::SmolVLM2);
-    expect(smol_preprocess.resize_mode == vlm_rknn::ResizeMode::PadToSquare,
+        vlm_rknn::model_family_image_preprocess_profile(vlm_rknn::ModelFamily::kSmolVLM2);
+    expect(smol_preprocess.resize_mode == vlm_rknn::ResizeMode::kPadToSquare,
            "SmolVLM2 profile should have an explicit resize mode");
 
     cv::Mat bgr_pixel(1, 1, CV_8UC3, cv::Scalar(10, 20, 30));
     cv::Mat preprocessed_pixel;
     expect(vlm_rknn::preprocess_image_for_vision_encoder(
-               vlm_rknn::ModelFamily::QwenVL2,
+               vlm_rknn::ModelFamily::kQwenVL2,
                bgr_pixel,
                cv::Size(1, 1),
                preprocessed_pixel) == 0,
@@ -93,7 +93,7 @@ int main()
     cv::Mat wide_bgr(1, 2, CV_8UC3, cv::Scalar(0, 0, 0));
     cv::Mat padded;
     expect(vlm_rknn::preprocess_image_for_vision_encoder(
-               vlm_rknn::ModelFamily::QwenVL2,
+               vlm_rknn::ModelFamily::kQwenVL2,
                wide_bgr,
                cv::Size(2, 2),
                padded) == 0,
@@ -103,7 +103,7 @@ int main()
            "Qwen2-VL padding should use the profile background color");
 
     vlm_rknn::ModelConfig llama_config;
-    llama_config.model_family = vlm_rknn::ModelFamily::Llama;
+    llama_config.model_family = vlm_rknn::ModelFamily::kLlama;
     llama_config.language_model_path = "/models/llama.rkllm";
     vlm_rknn::Session llama_session(llama_config);
     expect(!llama_session.is_ready(), "llama session should not be ready before init");
@@ -135,7 +135,7 @@ int main()
                "valid INI should parse: " + error);
         expect(configs.size() == 2, "two models should be parsed");
         expect(configs[0].model_id == "qwen", "first model should be the default 'qwen'");
-        expect(configs[0].config.model_family == vlm_rknn::ModelFamily::QwenVL2,
+        expect(configs[0].config.model_family == vlm_rknn::ModelFamily::kQwenVL2,
                "qwen model family should parse");
         expect(configs[0].config.vision_encoder_path.has_value() &&
                    *configs[0].config.vision_encoder_path == "/models/qwen/vision.rknn",
@@ -144,7 +144,7 @@ int main()
                "qwen llm path should be retained");
         expect(configs[0].config.max_new_tokens == 300, "qwen max_new_tokens should be 300");
         expect(configs[1].model_id == "chat", "second model should be 'chat'");
-        expect(configs[1].config.model_family == vlm_rknn::ModelFamily::Llama,
+        expect(configs[1].config.model_family == vlm_rknn::ModelFamily::kLlama,
                "chat model family should be llama");
         expect(!configs[1].config.vision_encoder_path.has_value(),
                "llama model should have no vision path");

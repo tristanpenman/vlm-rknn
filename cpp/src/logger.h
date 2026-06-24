@@ -57,11 +57,12 @@
 class Logger
 {
 public:
-    enum class Level {
-        Verbose = 0,
-        Info = 1,
-        Warning = 2,
-        Error = 3
+    enum class Level
+    {
+        kVerbose = 0,
+        kInfo = 1,
+        kWarning = 2,
+        kError = 3
     };
 
     class Writer
@@ -73,46 +74,46 @@ public:
         template<typename T>
         Writer& operator<<(T const & value)
         {
-            if (m_enabled) {
-                m_ss << value;
+            if (enabled_) {
+                ss_ << value;
             }
 
             return *this;
         }
 
     private:
-        Logger &m_logger;
-        std::stringstream m_ss;
-        bool m_enabled{false};
+        Logger &logger_;
+        std::stringstream ss_;
+        bool enabled_{false};
     };
 
     explicit Logger(std::string name = {});
 
-    Writer operator()(const Level level = Level::Info)
+    Writer operator()(const Level level = Level::kInfo)
     {
         return Writer{*this, level};
     }
 
     static void configure();
     static void configure(std::ostream& os);
-    static void configure(Level minLevel);
-    static void configure(std::ostream& os, Level minLevel);
+    static void configure(Level min_level);
+    static void configure(std::ostream& os, Level min_level);
 
     static bool verbose()
     {
-        return m_minLevel.load() <= Level::Verbose;
+        return min_level_.load() <= Level::kVerbose;
     }
 
 private:
-    static std::atomic<std::ostream*> m_os;
-    static std::atomic<Level> m_minLevel;
-    static std::mutex m_mutex;
+    static std::atomic<std::ostream*> os_;
+    static std::atomic<Level> min_level_;
+    static std::mutex mutex_;
 
-    std::string m_name;
+    std::string name_;
 };
 
 #define LOG     Logger()
-#define INFO    Logger::Level::Info
-#define WARNING Logger::Level::Warning
-#define ERROR   Logger::Level::Error
-#define VERBOSE Logger::Level::Verbose
+#define INFO    Logger::Level::kInfo
+#define WARNING Logger::Level::kWarning
+#define ERROR   Logger::Level::kError
+#define VERBOSE Logger::Level::kVerbose

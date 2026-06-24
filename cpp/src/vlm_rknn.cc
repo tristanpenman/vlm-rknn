@@ -21,7 +21,8 @@ namespace vlm_rknn {
 
 namespace {
 
-struct ModelProfile {
+struct ModelProfile
+{
     bool uses_vision_encoder;
     bool supports_multimodal;
     int32_t base_domain_id;
@@ -36,7 +37,7 @@ struct ModelProfile {
 const ModelProfile& model_profile_for(ModelFamily family)
 {
     static constexpr ImagePreprocessProfile qwen_vl_image_preprocess {
-        ResizeMode::PadToSquare,
+        ResizeMode::kPadToSquare,
         true,
         false,
         127.5f,
@@ -47,7 +48,7 @@ const ModelProfile& model_profile_for(ModelFamily family)
     };
 
     static constexpr ImagePreprocessProfile llama_image_preprocess {
-        ResizeMode::PadToSquare,
+        ResizeMode::kPadToSquare,
         true,
         false,
         0.0f,
@@ -108,7 +109,7 @@ const ModelProfile& model_profile_for(ModelFamily family)
     };
 
     static constexpr ImagePreprocessProfile smolvlm2_image_preprocess {
-        ResizeMode::PadToSquare,
+        ResizeMode::kPadToSquare,
         true,
         false,
         127.5f,
@@ -133,15 +134,15 @@ const ModelProfile& model_profile_for(ModelFamily family)
     };
 
     switch (family) {
-    case ModelFamily::QwenVL2:
+    case ModelFamily::kQwenVL2:
         return qwen2_vl;
-    case ModelFamily::QwenVL2_5:
+    case ModelFamily::kQwenVL2_5:
         return qwen2_5_vl;
-    case ModelFamily::QwenVL3:
+    case ModelFamily::kQwenVL3:
         return qwen3_vl;
-    case ModelFamily::Llama:
+    case ModelFamily::kLlama:
         return llama;
-    case ModelFamily::SmolVLM2:
+    case ModelFamily::kSmolVLM2:
         return smolvlm2;
     }
 
@@ -198,28 +199,28 @@ cv::Mat center_crop_to_aspect(const cv::Mat& image, double target_aspect)
 bool parse_model_family(std::string_view value, ModelFamily& family)
 {
     if (value == "qwen2-vl" || value == "qwen2_vl" || value == "qwen2") {
-        family = ModelFamily::QwenVL2;
+        family = ModelFamily::kQwenVL2;
         return true;
     }
 
     if (value == "qwen2.5-vl" || value == "qwen2_5_vl" ||
         value == "qwen25-vl" || value == "qwen2.5") {
-        family = ModelFamily::QwenVL2_5;
+        family = ModelFamily::kQwenVL2_5;
         return true;
     }
 
     if (value == "qwen3-vl" || value == "qwen3_vl" || value == "qwen3") {
-        family = ModelFamily::QwenVL3;
+        family = ModelFamily::kQwenVL3;
         return true;
     }
 
     if (value == "llama" || value == "llama3" || value == "llama3.2") {
-        family = ModelFamily::Llama;
+        family = ModelFamily::kLlama;
         return true;
     }
 
     if (value == "smolvlm2" || value == "smol-vlm2" || value == "smol_vlm2") {
-        family = ModelFamily::SmolVLM2;
+        family = ModelFamily::kSmolVLM2;
         return true;
     }
 
@@ -348,15 +349,15 @@ bool parse_model_configs_from_ini(
 const char* model_family_name(ModelFamily family)
 {
     switch (family) {
-    case ModelFamily::QwenVL2:
+    case ModelFamily::kQwenVL2:
         return "qwen2-vl";
-    case ModelFamily::QwenVL2_5:
+    case ModelFamily::kQwenVL2_5:
         return "qwen2.5-vl";
-    case ModelFamily::QwenVL3:
+    case ModelFamily::kQwenVL3:
         return "qwen3-vl";
-    case ModelFamily::Llama:
+    case ModelFamily::kLlama:
         return "llama";
-    case ModelFamily::SmolVLM2:
+    case ModelFamily::kSmolVLM2:
         return "smolvlm2";
     }
 
@@ -424,15 +425,15 @@ int preprocess_image_for_vision_encoder(
 
     cv::Mat resized;
     switch (profile.resize_mode) {
-    case ResizeMode::PadToSquare: {
+    case ResizeMode::kPadToSquare: {
         cv::Mat square = pad_to_square(color, cv::Scalar(profile.pad_r, profile.pad_g, profile.pad_b));
         cv::resize(square, resized, target_size, 0, 0, cv::INTER_LINEAR);
         break;
     }
-    case ResizeMode::Stretch:
+    case ResizeMode::kStretch:
         cv::resize(color, resized, target_size, 0, 0, cv::INTER_LINEAR);
         break;
-    case ResizeMode::CenterCrop: {
+    case ResizeMode::kCenterCrop: {
         const double target_aspect = static_cast<double>(target_size.width) / static_cast<double>(target_size.height);
         cv::Mat cropped = center_crop_to_aspect(color, target_aspect);
         cv::resize(cropped, resized, target_size, 0, 0, cv::INTER_LINEAR);

@@ -13,11 +13,13 @@
 
 namespace vlm_rknn {
 
-struct TextDecoder {
+struct TextDecoder
+{
     LLMHandle handle = nullptr;
 };
 
-struct VisionEncoder {
+struct VisionEncoder
+{
     rknn_context rknn_ctx = 0;
     rknn_input_output_num io_num {};
     rknn_tensor_attr* input_attrs = nullptr;
@@ -31,21 +33,24 @@ struct VisionEncoder {
     int model_embed_size = 0;
 };
 
-enum class ModelFamily {
-    QwenVL2,
-    QwenVL2_5,
-    QwenVL3,
-    Llama,
-    SmolVLM2,
+enum class ModelFamily
+{
+    kQwenVL2,
+    kQwenVL2_5,
+    kQwenVL3,
+    kLlama,
+    kSmolVLM2,
 };
 
-enum class ResizeMode {
-    PadToSquare,
-    Stretch,
-    CenterCrop,
+enum class ResizeMode
+{
+    kPadToSquare,
+    kStretch,
+    kCenterCrop,
 };
 
-struct ImagePreprocessProfile {
+struct ImagePreprocessProfile
+{
     ResizeMode resize_mode;
     bool rgb;
     bool normalize_in_host;
@@ -56,8 +61,9 @@ struct ImagePreprocessProfile {
     std::array<float, 3> std;
 };
 
-struct ModelConfig {
-    ModelFamily model_family = ModelFamily::QwenVL2;
+struct ModelConfig
+{
+    ModelFamily model_family = ModelFamily::kQwenVL2;
 
     std::optional<std::string> vision_encoder_path;
     std::string language_model_path;
@@ -70,7 +76,8 @@ struct ModelConfig {
 
 // A ModelConfig together with the identifier it was defined under (the INI
 // section name). The server uses the identifier to route requests.
-struct NamedModelConfig {
+struct NamedModelConfig
+{
     std::string model_id;
     ModelConfig config;
 };
@@ -102,7 +109,8 @@ int preprocess_image_for_vision_encoder(
     cv::Size target_size,
     cv::Mat& output);
 
-class Session {
+class Session
+{
 public:
     using OutputCallback = std::function<void(const char* text, LLMCallState state)>;
 

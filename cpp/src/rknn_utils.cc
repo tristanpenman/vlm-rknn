@@ -1,5 +1,3 @@
-#include "rknn_utils.h"
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -12,6 +10,7 @@
 
 #include <rknn_api.h>
 
+#include "rknn_utils.h"
 #include "logger.h"
 
 namespace {

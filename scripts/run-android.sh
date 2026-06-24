@@ -217,4 +217,7 @@ sync_model "${MODEL_CACHE}/${VISION_FILE}" "${REMOTE_MODEL_DIR}/${VISION_FILE}"
 
 echo "=== Start server on ${SERIAL} (port ${PORT}) ==="
 
-"${ADB[@]}" shell "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn-server --ini-file ${REMOTE_DIR}/server.ini --port ${PORT}"
+# Force a pseudo-terminal (-t -t) so the server's stdout is line-buffered and
+# streams live; without a tty it stays block-buffered and nothing appears until
+# the process exits. Merge stderr into stdout so both are shown.
+"${ADB[@]}" shell -t -t "cd ${REMOTE_DIR} && LD_LIBRARY_PATH=${REMOTE_LIB_DIR} ./vlm-rknn-server --ini-file ${REMOTE_DIR}/server.ini --port ${PORT} 2>&1"

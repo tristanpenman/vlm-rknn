@@ -1,6 +1,6 @@
 # VLM RKNN
 
-This repo contains a starter CMake project for running Qwen-VL style vision-language models on Rockchip devices via RKNN/RKLLM.
+This repo contains a starter CMake project for running vision-language models on Rockchip devices via RKNN/RKLLM.
 
 Currently supports the following models:
 
@@ -33,6 +33,8 @@ Others are in development:
 * [Models](#models)
   * [Qwen2-VL-2b](#qwen2-vl-2b)
   * [Qwen2-VL-7b](#qwen2-vl-7b)
+  * [SmolVLM2-256M](#smolvlm2-256m)
+  * [SmolVLM2-500M](#smolvlm2-500m)
 * [Contributing](#contributing)
 * [License](#license)
 
@@ -343,6 +345,26 @@ Alternatively, you can fetch the 7B version. This weighs in at around 9.6GB. The
 👉 [Qwen2-VL-7B-rkllm](https://huggingface.co/3ib0n/Qwen2-VL-7B-rkllm)
 
 Fetch the `Qwen2-VL-7B-Instruct.rkllm` and `qwen2_vl_7b_vision_rk3588.rknn` model files.
+
+### SmolVLM2-256M
+
+SmolVLM2-256M is a much smaller vision-language model, making it a good fit for memory-constrained devices or for running alongside a larger model. The conversion used here comes from the [Qengineering/SmolVLM2-256M-NPU](https://github.com/Qengineering/SmolVLM2-256M-NPU) project.
+
+You can download compatible SmolVLM2-256M models from Hugging Face:
+
+👉 [SmolVLM2-256m-rk3588](https://huggingface.co/Qengineering/SmolVLM2-256m-rk3588)
+
+Fetch the `smolvlm2-256m-instruct_w8a8_rk3588.rkllm` and `smolvlm2_256m_vision_fp16_rk3588.rknn` model files.
+
+### SmolVLM2-500M
+
+SmolVLM2-500M is a larger SmolVLM2 variant that trades a little more memory for stronger output while still remaining lightweight (around 0.8GB of RAM). The conversion used here comes from the [Qengineering/SmolVLM2-500M-NPU](https://github.com/Qengineering/SmolVLM2-500M-NPU) project.
+
+You can download compatible SmolVLM2-500M models from Hugging Face:
+
+👉 [SmolVLM2-500m-rk3588](https://huggingface.co/Qengineering/SmolVLM2-500m-rk3588)
+
+Fetch the `smolvlm2_500m_llm_w8a8_rk3588.rkllm` and `smolvlm2_500m_vision_fp16_rk3588.rknn` model files.
 
 ## Contributing
 

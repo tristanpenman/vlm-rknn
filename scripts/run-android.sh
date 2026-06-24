@@ -179,7 +179,9 @@ sync_model() {
   name="$(basename "${dst}")"
 
   lsize="$(local_size "${src}")"
-  rsize="$("${ADB[@]}" shell "stat -c%s '${dst}' 2>/dev/null" | tr -d '\r')"
+  # A missing remote file makes stat exit non-zero; tolerate it (rsize stays
+  # empty) so set -o pipefail / set -e don't abort the script on first push.
+  rsize="$("${ADB[@]}" shell "stat -c%s '${dst}' 2>/dev/null" | tr -d '\r' || true)"
 
   if [[ "${rsize}" == "${lsize}" ]]; then
     echo "Up to date (${lsize} bytes): ${dst}"

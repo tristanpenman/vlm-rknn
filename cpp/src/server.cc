@@ -52,19 +52,19 @@ struct QueryResult
 
 void print_usage(const char* program)
 {
-    LOG(ERROR) << "Usage: " << program
-               << " [-v|--verbose] [--host <address>] [--port <port>]"
-               << " [--max-loaded-models <count>]"
-               << " --ini-file <path>";
-    LOG(ERROR) << "The INI file defines one or more models, one per [model_id] section.";
-    LOG(ERROR) << "Recognised keys: model_family, vision, llm, max_new_tokens, max_context_len, cores.";
-    LOG(ERROR) << "The first model in the file is the default; requests may select another via 'model_id'.";
+    std::cout << "Usage: " << program
+              << " [-v|--verbose] [--host <address>] [--port <port>]"
+              << " [--max-loaded-models <count>]"
+              << " --ini-file <path>\n";
+    std::cout << "The INI file defines one or more models, one per [model_id] section.\n";
+    std::cout << "Recognised keys: model_family, vision, llm, max_new_tokens, max_context_len, cores.\n";
+    std::cout << "The first model in the file is the default; requests may select another via 'model_id'.\n";
 }
 
 bool get_option_value(int argc, char** argv, int& index, const char* option, const char*& value)
 {
     if (index + 1 >= argc) {
-        LOG(WARNING) << option << " option requires an argument";
+        std::cout << option << " option requires an argument\n";
         return false;
     }
     value = argv[++index];
@@ -77,8 +77,8 @@ bool parse_int_option(const char* option, const char* value, int min_value, int 
     char* end = nullptr;
     const long result = std::strtol(value, &end, 10);
     if (value == end || *end != '\0' || errno == ERANGE || result < min_value || result > max_value) {
-        LOG(WARNING) << "Invalid value for " << option << ": " << value
-                     << " (expected " << min_value << "-" << max_value << ")";
+        std::cout << "Invalid value for " << option << ": " << value
+                  << " (expected " << min_value << "-" << max_value << ")\n";
         return false;
     }
 
@@ -134,12 +134,12 @@ bool parse_options(int argc, char** argv, ServerOptions& options)
             continue;
         }
 
-        LOG(WARNING) << "Unexpected positional argument or unknown option: " << argv[i];
+        std::cout << "Unexpected positional argument or unknown option: " << argv[i] << "\n";
         return false;
     }
 
     if (options.ini_file_path.empty()) {
-        LOG(WARNING) << "Missing required --ini-file <path> argument";
+        std::cout << "Missing required --ini-file <path> argument\n";
         return false;
     }
 

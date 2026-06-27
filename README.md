@@ -135,6 +135,14 @@ Unlike the CLI, the server does not take model arguments on the command line. Mo
 ./vlm-rknn-server --ini-file server.ini
 ```
 
+Static content is disabled by default. Pass `--public` with a directory of public resources to enable it. The repository's browser interface can be served with:
+
+```bash
+./vlm-rknn-server --ini-file server.ini --public etc
+```
+
+Open `http://<host>:8080/` in a browser. The page lists configured models, accepts a prompt, previews an uploaded PNG or JPEG image, and sends the request to the same `/query` JSON API described below.
+
 Other options:
 
 | Option                       | Default   | Description                                                  |
@@ -143,6 +151,7 @@ Other options:
 | `--host <address>`           | `0.0.0.0` | Address to bind.                                             |
 | `--port <port>`              | `8080`    | Port to listen on.                                           |
 | `--max-loaded-models <n>`    | `1`       | Maximum number of models held in NPU memory at once.         |
+| `--public <directory>`       | disabled  | Serve public resources from the specified local directory.   |
 | `-v`, `--verbose`            | off       | Enable verbose logging.                                      |
 
 ### Configuration File
@@ -176,11 +185,12 @@ A complete example is provided in [`data/server.example.ini`](./data/server.exam
 
 ### Endpoints
 
-| Method | Path       | Description                                            |
-|--------|------------|--------------------------------------------------------|
-| `GET`  | `/health`  | Returns `{"ready": <bool>}` for the default model.     |
-| `GET`  | `/models`  | Returns the configured model ids and the default.      |
-| `POST` | `/query`   | Runs a query. See the request format below.            |
+| Method | Path          | Description                                            |
+|--------|---------------|--------------------------------------------------------|
+| `GET`  | `/...`        | Serves static content when `--public` is specified.    |
+| `GET`  | `/health`     | Returns `{"ready": <bool>}` for the default model.     |
+| `GET`  | `/models`     | Returns the configured model ids and the default.      |
+| `POST` | `/query`      | Runs a query. See the request format below.            |
 
 A `/query` request body is a JSON object:
 

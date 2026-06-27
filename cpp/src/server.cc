@@ -17,6 +17,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -41,6 +42,7 @@ struct ServerOptions
     std::string host = "0.0.0.0";
     int port = 8080;
     std::string ini_file_path;
+    std::string public_path;
     int max_loaded_models = 1;
 };
 
@@ -55,6 +57,7 @@ void print_usage(const char* program)
     std::cout << "Usage: " << program
               << " [-v|--verbose] [--host <address>] [--port <port>]"
               << " [--max-loaded-models <count>]"
+              << " [--public <directory>]"
               << " --ini-file <path>\n";
     std::cout << "The INI file defines one or more models, one per [model_id] section.\n";
     std::cout << "Recognised keys: model_family, vision, llm, max_new_tokens, max_context_len, cores.\n";
@@ -133,6 +136,14 @@ bool parse_options(int argc, char** argv, ServerOptions& options)
             options.ini_file_path = value;
             continue;
         }
+        if (strcmp(argv[i], "--public") == 0) {
+            const char* value = nullptr;
+            if (!get_option_value(argc, argv, i, "--public", value)) {
+                return false;
+            }
+            options.public_path = value;
+            continue;
+        }
 
         std::cout << "Unexpected positional argument or unknown option: " << argv[i] << "\n";
         return false;
@@ -169,6 +180,40 @@ void send_json(httplib::Response& response, int status, const Json& body)
 {
     response.status = status;
     response.set_content(body.dump(), "application/json");
+}
+
+bool has_unsafe_path_component(const std::string& path)
+{
+    if (path.empty() || path.front() != '/'
+        || path.find('\\') != std::string::npos || path.find('\0') != std::string::npos) {
+        return true;
+    }
+
+    size_t offset = 0;
+    while (offset <= path.size()) {
+        const size_t end = path.find('/', offset);
+        const std::string component = path.substr(offset, end - offset);
+        if (component == "." || component == "..") {
+            return true;
+        }
+        if (end == std::string::npos) {
+            break;
+        }
+        offset = end + 1;
+    }
+    return false;
+}
+
+bool is_within_directory(const std::filesystem::path& directory, const std::filesystem::path& path)
+{
+    auto directory_part = directory.begin();
+    auto path_part = path.begin();
+    for (; directory_part != directory.end(); ++directory_part, ++path_part) {
+        if (path_part == path.end() || *directory_part != *path_part) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Maximum size, in bytes, of an uploaded (base64-decoded) image.
@@ -355,6 +400,38 @@ int main(int argc, char** argv)
     }
 
     httplib::Server server;
+
+    if (!options.public_path.empty()) {
+        std::error_code error;
+        const std::filesystem::path public_directory = std::filesystem::canonical(options.public_path, error);
+        if (error || !std::filesystem::is_directory(public_directory)) {
+            LOG(ERROR) << "Could not serve static content from directory: " << options.public_path;
+            return 1;
+        }
+
+        server.set_pre_routing_handler(
+            [public_directory](const httplib::Request& request, httplib::Response& response) {
+                if (has_unsafe_path_component(request.path)) {
+                    response.status = 400;
+                    return httplib::Server::HandlerResponse::Handled;
+                }
+
+                std::error_code path_error;
+                const std::filesystem::path request_path =
+                    std::filesystem::weakly_canonical(public_directory / request.path.substr(1), path_error);
+                if (path_error || !is_within_directory(public_directory, request_path)) {
+                    response.status = 400;
+                    return httplib::Server::HandlerResponse::Handled;
+                }
+                return httplib::Server::HandlerResponse::Unhandled;
+            });
+
+        if (!server.set_mount_point("/", public_directory.string())) {
+            LOG(ERROR) << "Could not serve static content from directory: " << options.public_path;
+            return 1;
+        }
+        LOG(INFO) << "Serving static content from " << public_directory.string();
+    }
 
     server.Get("/health", [&registry, &registry_mutex](const httplib::Request&, httplib::Response& response) {
         std::lock_guard<std::mutex> lock(registry_mutex);

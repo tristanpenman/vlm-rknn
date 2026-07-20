@@ -36,7 +36,7 @@ if(NOT EXISTS "${RKNN_RUNTIME_LIB}")
     "Set RKNN_RUNTIME_LIB or rknnRuntimeLib to the Android RKNN runtime.")
 endif()
 
-include("${REPO_ROOT}/cmake/thirdparty/OpenCV.cmake")
+include("${REPO_ROOT}/cmake/OpenCV.cmake")
 
 include_directories(
     "${REPO_ROOT}/cpp/src"
@@ -46,6 +46,7 @@ include_directories(
 
 add_library(vlm-rknn-jni SHARED
     rknn_jni.cpp
+    "${REPO_ROOT}/cpp/src/ini.cc"
     "${REPO_ROOT}/cpp/src/logger.cc"
     "${REPO_ROOT}/cpp/src/vlm_rknn.cc"
     "${REPO_ROOT}/cpp/src/rknn_utils.cc")

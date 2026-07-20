@@ -1,4 +1,7 @@
+#include "rknn_utils.h"
+
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -10,36 +13,35 @@
 
 #include <rknn_api.h>
 
-#include "rknn_utils.h"
 #include "logger.h"
 
 namespace {
 
-std::optional<std::string> find_loaded_library_path(std::string_view library_name)
+std::optional<std::string> findLoadedLibraryPath(std::string_view libraryName)
 {
     std::ifstream maps("/proc/self/maps");
     std::string line;
     while (std::getline(maps, line)) {
-        if (line.find(library_name) == std::string::npos) {
+        if (line.find(libraryName) == std::string::npos) {
             continue;
         }
 
-        const auto path_start = line.find('/');
-        if (path_start == std::string::npos) {
+        const auto pathStart = line.find('/');
+        if (pathStart == std::string::npos) {
             continue;
         }
 
-        return line.substr(path_start);
+        return line.substr(pathStart);
     }
 
     return std::nullopt;
 }
 
-std::optional<std::string> read_embedded_version_string(
-    const std::string& library_path,
+std::optional<std::string> readEmbeddedVersionString(
+    const std::string& libraryPath,
     std::string_view marker)
 {
-    std::ifstream library(library_path, std::ios::binary);
+    std::ifstream library(libraryPath, std::ios::binary);
     if (!library) {
         return std::nullopt;
     }
@@ -48,26 +50,26 @@ std::optional<std::string> read_embedded_version_string(
     std::vector<char> buffer(64 * 1024);
     while (library) {
         library.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-        const auto bytes_read = library.gcount();
-        if (bytes_read <= 0) {
+        const auto bytesRead = library.gcount();
+        if (bytesRead <= 0) {
             break;
         }
 
         std::string chunk = carry;
-        chunk.append(buffer.data(), static_cast<size_t>(bytes_read));
-        const auto marker_pos = chunk.find(marker);
-        if (marker_pos != std::string::npos) {
-            const auto value_start = marker_pos + marker.size();
-            auto value_end = value_start;
-            const auto value_limit = std::min(chunk.size(), value_start + 160);
-            while (value_end < value_limit && chunk[value_end] != '\0' && chunk[value_end] != '\n') {
-                ++value_end;
+        chunk.append(buffer.data(), static_cast<std::size_t>(bytesRead));
+        const auto markerPos = chunk.find(marker);
+        if (markerPos != std::string::npos) {
+            const auto valueStart = markerPos + marker.size();
+            auto valueEnd = valueStart;
+            const auto valueLimit = std::min(chunk.size(), valueStart + 160);
+            while (valueEnd < valueLimit && chunk[valueEnd] != '\0' && chunk[valueEnd] != '\n') {
+                ++valueEnd;
             }
-            return std::string(marker) + chunk.substr(value_start, value_end - value_start);
+            return std::string(marker) + chunk.substr(valueStart, valueEnd - valueStart);
         }
 
-        const auto carry_size = std::min(chunk.size(), marker.size() + 160);
-        carry = chunk.substr(chunk.size() - carry_size);
+        const auto carrySize = std::min(chunk.size(), marker.size() + 160);
+        carry = chunk.substr(chunk.size() - carrySize);
     }
 
     return std::nullopt;
@@ -77,7 +79,7 @@ std::optional<std::string> read_embedded_version_string(
 
 namespace rknn_utils {
 
-const char* rknn_error_message(int ret)
+const char* rknnErrorMessage(int ret)
 {
     switch (ret) {
     case RKNN_SUCC:
@@ -103,9 +105,9 @@ const char* rknn_error_message(int ret)
     case RKNN_ERR_DEVICE_UNMATCH:
         return "RKNN_ERR_DEVICE_UNMATCH (-10): SDK and NPU driver or firmware do not match";
     case RKNN_ERR_INCOMPATILE_PRE_COMPILE_MODEL:
-        return "RKNN_ERR_INCOMPATILE_PRE_COMPILE_MODEL (-11): pre-compiled model is incompatible with current driver";
+        return "RKNN_ERR_INCOMPATIBLE_PRE_COMPILE_MODEL (-11): pre-compiled model is incompatible";
     case RKNN_ERR_INCOMPATILE_OPTIMIZATION_LEVEL_VERSION:
-        return "RKNN_ERR_INCOMPATIBLE_OPTIMIZATION_LEVEL_VERSION (-12): model optimization level is incompatible with current driver";
+        return "RKNN_ERR_INCOMPATIBLE_OPTIMIZATION_LEVEL_VERSION (-12): optimization level is incompatible";
     case RKNN_ERR_TARGET_PLATFORM_UNMATCH:
         return "RKNN_ERR_TARGET_PLATFORM_UNMATCH (-13): model target platform does not match current platform";
     default:
@@ -113,14 +115,14 @@ const char* rknn_error_message(int ret)
     }
 }
 
-std::string tensor_attr_to_string(const rknn_tensor_attr& attr)
+std::string tensorAttrToString(const rknn_tensor_attr& attr)
 {
     std::ostringstream stream;
     stream << "index=" << attr.index
            << " name=" << attr.name
            << " n_dims=" << attr.n_dims
            << " dims=[";
-    for (uint32_t i = 0; i < attr.n_dims && i < RKNN_MAX_DIMS; ++i) {
+    for (std::uint32_t i = 0; i < attr.n_dims && i < RKNN_MAX_DIMS; ++i) {
         if (i > 0) {
             stream << ", ";
         }
@@ -136,45 +138,45 @@ std::string tensor_attr_to_string(const rknn_tensor_attr& attr)
     return stream.str();
 }
 
-void log_rknn_version(rknn_context ctx)
+void logRknnVersion(rknn_context ctx)
 {
-    rknn_sdk_version rknn_version;
-    memset(&rknn_version, 0, sizeof(rknn_version));
-    const int ret = rknn_query(ctx, RKNN_QUERY_SDK_VERSION, &rknn_version, sizeof(rknn_version));
+    rknn_sdk_version rknnVersion;
+    memset(&rknnVersion, 0, sizeof(rknnVersion));
+    const int ret = rknn_query(ctx, RKNN_QUERY_SDK_VERSION, &rknnVersion, sizeof(rknnVersion));
     if (ret == RKNN_SUCC) {
-        LOG(INFO) << "RKNN version: api=" << rknn_version.api_version
-                  << " driver=" << rknn_version.drv_version;
+        LOG(INFO) << "RKNN version: api=" << rknnVersion.api_version
+                  << " driver=" << rknnVersion.drv_version;
     } else {
-        LOG(WARNING) << "Failed to query RKNN version, error=" << rknn_error_message(ret);
+        LOG(WARNING) << "Failed to query RKNN version, error=" << rknnErrorMessage(ret);
     }
 }
 
-void log_rkllm_version()
+void logRkllmVersion()
 {
-    const auto library_path = find_loaded_library_path("librkllmrt.so");
-    if (!library_path.has_value()) {
+    const auto libraryPath = findLoadedLibraryPath("librkllmrt.so");
+    if (!libraryPath.has_value()) {
         LOG(WARNING) << "RKLLM version: unavailable (librkllmrt.so is not visible in /proc/self/maps)";
         return;
     }
 
-    const auto version = read_embedded_version_string(
-        *library_path,
+    const auto version = readEmbeddedVersionString(
+        *libraryPath,
         "rknn llm lib version: ");
     if (version.has_value()) {
         LOG(INFO) << "RKLLM version: " << *version;
         return;
     }
 
-    const auto sdk_version = read_embedded_version_string(
-        *library_path,
+    const auto sdkVersion = readEmbeddedVersionString(
+        *libraryPath,
         "RKLLM SDK (version: ");
-    if (sdk_version.has_value()) {
-        LOG(INFO) << "RKLLM version: " << *sdk_version;
+    if (sdkVersion.has_value()) {
+        LOG(INFO) << "RKLLM version: " << *sdkVersion;
         return;
     }
 
     LOG(WARNING) << "RKLLM version: unavailable (no embedded version marker found in "
-                 << *library_path << ")";
+                 << *libraryPath << ")";
 }
 
 }  // namespace rknn_utils

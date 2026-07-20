@@ -6,9 +6,9 @@
 
 namespace rknn_utils {
 
-const char* rknn_error_message(int ret);
-std::string tensor_attr_to_string(const rknn_tensor_attr& attr);
-void log_rknn_version(rknn_context ctx);
-void log_rkllm_version();
+const char* rknnErrorMessage(int ret);
+std::string tensorAttrToString(const rknn_tensor_attr& attr);
+void logRknnVersion(rknn_context ctx);
+void logRkllmVersion();
 
 }  // namespace rknn_utils

@@ -12,20 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <iostream>
-#include <mutex>
-#include <utility>
-
 #include "logger.h"
 
-using namespace std;
+#include <atomic>
+#include <iostream>
+#include <mutex>
+#include <ostream>
+#include <string>
+#include <utility>
 
-atomic<ostream*> Logger::os_ = nullptr;
-atomic<Logger::Level> Logger::min_level_ = Level::kInfo;
-mutex Logger::mutex_;
+std::atomic<std::ostream*> Logger::os_ = nullptr;
+std::atomic<Logger::Level> Logger::minLevel_ = Level::kInfo;
+std::mutex Logger::mutex_;
 
 namespace {
-const char* level_label(const Logger::Level level)
+
+const char* levelLabel(const Logger::Level level)
 {
     switch (level) {
     case Logger::Level::kInfo:
@@ -40,47 +42,48 @@ const char* level_label(const Logger::Level level)
         return "U";
     }
 }
+
 }  // namespace
 
-Logger::Logger(string name)
-  : name_(std::move(name))
+Logger::Logger(std::string name)
+    : name_(std::move(name))
 {
 }
 
 void Logger::configure()
 {
-    os_ = &cout;
+    os_ = &std::cout;
 }
 
-void Logger::configure(ostream &os)
+void Logger::configure(std::ostream& os)
 {
     os_ = &os;
 }
 
-void Logger::configure(const Level min_level)
+void Logger::configure(const Level minLevel)
 {
-    min_level_ = min_level;
+    minLevel_ = minLevel;
 }
 
-void Logger::configure(ostream &os, const Level min_level)
+void Logger::configure(std::ostream& os, const Level minLevel)
 {
     os_ = &os;
-    min_level_ = min_level;
+    minLevel_ = minLevel;
 }
 
 //
 // Logger::Writer implementation
 //
 
-Logger::Writer::Writer(Logger &logger, const Level level)
-  : logger_(logger)
+Logger::Writer::Writer(Logger& logger, const Level level)
+    : logger_(logger)
 {
-    enabled_ = os_.load() && level >= min_level_.load();
+    enabled_ = os_.load() && level >= minLevel_.load();
     if (!enabled_) {
         return;
     }
 
-    ss_ << "[" << level_label(level) << "]";
+    ss_ << "[" << levelLabel(level) << "]";
     if (!logger_.name_.empty()) {
         ss_ << "[" << logger_.name_ << "]";
     }
@@ -93,11 +96,11 @@ Logger::Writer::~Writer()
         return;
     }
 
-    ostream* os = os_.load();
+    std::ostream* os = os_.load();
     if (!os) {
         return;
     }
 
-    lock_guard lock(mutex_);
+    std::lock_guard lock(mutex_);
     *os << ss_.str() << '\n';
 }

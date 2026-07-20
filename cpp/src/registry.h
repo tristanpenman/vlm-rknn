@@ -36,12 +36,12 @@
 class Registry
 {
 public:
-    Registry(std::vector<vlm_rknn::NamedModelConfig> configs, size_t capacity);
+    Registry(std::vector<vlm_rknn::NamedModelConfig> configs, std::size_t capacity);
 
-    const std::string& default_model_id() const noexcept;
-    bool has_model(const std::string& id) const;
-    std::vector<std::string> model_ids() const;
-    bool default_ready() const;
+    const std::string& defaultModelId() const noexcept;
+    bool hasModel(const std::string& id) const;
+    std::vector<std::string> modelIds() const;
+    bool defaultReady() const;
 
     // Return a ready session for `id`, loading it (and evicting the least
     // recently used model if necessary) when it is not already resident.
@@ -50,12 +50,12 @@ public:
 
 private:
     void touch(const std::string& id);
-    void evict_lru();
+    void evictLru();
 
     std::vector<vlm_rknn::NamedModelConfig> configs_;
-    std::unordered_map<std::string, const vlm_rknn::ModelConfig*> config_by_id_;
-    size_t capacity_;
+    std::unordered_map<std::string, const vlm_rknn::ModelConfig*> configById_;
+    std::size_t capacity_;
     std::list<std::string> lru_;  // front = most recently used, back = least
     std::unordered_map<std::string, std::unique_ptr<vlm_rknn::Session>> loaded_;
-    std::string default_id_;
+    std::string defaultId_;
 };

@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cctype>
-#include <sstream>
-
 #include "ini.h"
+
+#include <cctype>
+#include <cstddef>
+#include <sstream>
 
 namespace ini {
 
@@ -23,8 +24,8 @@ namespace {
 
 std::string trim(const std::string& value)
 {
-    size_t begin = 0;
-    size_t end = value.size();
+    std::size_t begin = 0;
+    std::size_t end = value.size();
     while (begin < end && std::isspace(static_cast<unsigned char>(value[begin]))) {
         ++begin;
     }
@@ -51,36 +52,36 @@ bool parse(const std::string& text, Document& out, std::string& error)
     out.sections.clear();
 
     std::istringstream stream(text);
-    std::string raw_line;
-    int line_number = 0;
+    std::string rawLine;
+    int lineNumber = 0;
     Section* current = nullptr;
 
-    while (std::getline(stream, raw_line)) {
-        ++line_number;
+    while (std::getline(stream, rawLine)) {
+        ++lineNumber;
 
         // Tolerate Windows line endings.
-        if (!raw_line.empty() && raw_line.back() == '\r') {
-            raw_line.pop_back();
+        if (!rawLine.empty() && rawLine.back() == '\r') {
+            rawLine.pop_back();
         }
 
-        const std::string line = trim(raw_line);
+        const std::string line = trim(rawLine);
         if (line.empty() || line[0] == ';' || line[0] == '#') {
             continue;
         }
 
         if (line[0] == '[') {
             if (line.back() != ']') {
-                error = "line " + std::to_string(line_number) + ": malformed section header: " + line;
+                error = "line " + std::to_string(lineNumber) + ": malformed section header: " + line;
                 return false;
             }
             const std::string name = trim(line.substr(1, line.size() - 2));
             if (name.empty()) {
-                error = "line " + std::to_string(line_number) + ": empty section name";
+                error = "line " + std::to_string(lineNumber) + ": empty section name";
                 return false;
             }
             for (const auto& section : out.sections) {
                 if (section.name == name) {
-                    error = "line " + std::to_string(line_number) + ": duplicate section: " + name;
+                    error = "line " + std::to_string(lineNumber) + ": duplicate section: " + name;
                     return false;
                 }
             }
@@ -89,24 +90,24 @@ bool parse(const std::string& text, Document& out, std::string& error)
             continue;
         }
 
-        const size_t equals = line.find('=');
+        const std::size_t equals = line.find('=');
         if (equals == std::string::npos) {
-            error = "line " + std::to_string(line_number) + ": expected key=value: " + line;
+            error = "line " + std::to_string(lineNumber) + ": expected key=value: " + line;
             return false;
         }
 
         const std::string key = trim(line.substr(0, equals));
         const std::string value = trim(line.substr(equals + 1));
         if (key.empty()) {
-            error = "line " + std::to_string(line_number) + ": empty key";
+            error = "line " + std::to_string(lineNumber) + ": empty key";
             return false;
         }
         if (current == nullptr) {
-            error = "line " + std::to_string(line_number) + ": key '" + key + "' appears before any section";
+            error = "line " + std::to_string(lineNumber) + ": key '" + key + "' appears before any section";
             return false;
         }
         if (current->get(key).has_value()) {
-            error = "line " + std::to_string(line_number) + ": duplicate key '" + key
+            error = "line " + std::to_string(lineNumber) + ": duplicate key '" + key
                 + "' in section [" + current->name + "]";
             return false;
         }

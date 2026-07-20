@@ -1,12 +1,15 @@
+#include "vlm_rknn.h"
+
 #include <algorithm>
 #include <cerrno>
 #include <climits>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <sstream>
 #include <string>
 #include <string_view>
-#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -14,7 +17,6 @@
 
 #include "ini.h"
 #include "logger.h"
-#include "vlm_rknn.h"
 #include "rknn_utils.h"
 
 namespace vlm_rknn {
@@ -23,20 +25,20 @@ namespace {
 
 struct ModelProfile
 {
-    bool uses_vision_encoder;
-    bool supports_multimodal;
-    int32_t base_domain_id;
-    bool use_chat_template;
-    const char* image_placeholder;
-    const char* img_start;
-    const char* img_end;
-    const char* img_content;
-    ImagePreprocessProfile image_preprocess;
+    bool usesVisionEncoder;
+    bool supportsMultimodal;
+    std::int32_t baseDomainId;
+    bool useChatTemplate;
+    const char* imagePlaceholder;
+    const char* imgStart;
+    const char* imgEnd;
+    const char* imgContent;
+    ImagePreprocessProfile imagePreprocess;
 };
 
-const ModelProfile& model_profile_for(ModelFamily family)
+const ModelProfile& modelProfileFor(ModelFamily family)
 {
-    static constexpr ImagePreprocessProfile qwen_vl_image_preprocess {
+    static constexpr ImagePreprocessProfile kQwenVlImagePreprocess {
         ResizeMode::kPadToSquare,
         true,
         false,
@@ -47,7 +49,7 @@ const ModelProfile& model_profile_for(ModelFamily family)
         {1.0f, 1.0f, 1.0f},
     };
 
-    static constexpr ImagePreprocessProfile llama_image_preprocess {
+    static constexpr ImagePreprocessProfile kLlamaImagePreprocess {
         ResizeMode::kPadToSquare,
         true,
         false,
@@ -58,7 +60,7 @@ const ModelProfile& model_profile_for(ModelFamily family)
         {1.0f, 1.0f, 1.0f},
     };
 
-    static constexpr ModelProfile qwen2_vl {
+    static constexpr ModelProfile kQwen2Vl {
         true,
         true,
         0,
@@ -67,11 +69,11 @@ const ModelProfile& model_profile_for(ModelFamily family)
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
-        qwen_vl_image_preprocess,
+        kQwenVlImagePreprocess,
     };
 
     // TODO: Change if necessary when the actual RKLLM models are available
-    static constexpr ModelProfile qwen2_5_vl {
+    static constexpr ModelProfile kQwen25Vl {
         true,
         true,
         0,
@@ -80,11 +82,11 @@ const ModelProfile& model_profile_for(ModelFamily family)
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
-        qwen_vl_image_preprocess,
+        kQwenVlImagePreprocess,
     };
 
     // TODO: Change if necessary
-    static constexpr ModelProfile qwen3_vl {
+    static constexpr ModelProfile kQwen3Vl {
         true,
         true,
         0,
@@ -93,10 +95,10 @@ const ModelProfile& model_profile_for(ModelFamily family)
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
-        qwen_vl_image_preprocess,
+        kQwenVlImagePreprocess,
     };
 
-    static constexpr ModelProfile llama {
+    static constexpr ModelProfile kLlama {
         false,
         false,
         0,
@@ -105,10 +107,10 @@ const ModelProfile& model_profile_for(ModelFamily family)
         "",
         "",
         "",
-        llama_image_preprocess,
+        kLlamaImagePreprocess,
     };
 
-    static constexpr ImagePreprocessProfile smolvlm2_image_preprocess {
+    static constexpr ImagePreprocessProfile kSmolvlm2ImagePreprocess {
         ResizeMode::kPadToSquare,
         true,
         false,
@@ -121,7 +123,7 @@ const ModelProfile& model_profile_for(ModelFamily family)
 
     // The SmolVLM2-256M-NPU reference currently uses the same RKLLM multimodal
     // marker strings as the Qwen-VL path.
-    static constexpr ModelProfile smolvlm2 {
+    static constexpr ModelProfile kSmolvlm2 {
         true,
         true,
         1,
@@ -130,41 +132,41 @@ const ModelProfile& model_profile_for(ModelFamily family)
         "<|vision_start|>",
         "<|vision_end|>",
         "<|image_pad|>",
-        smolvlm2_image_preprocess,
+        kSmolvlm2ImagePreprocess,
     };
 
     switch (family) {
     case ModelFamily::kQwenVL2:
-        return qwen2_vl;
+        return kQwen2Vl;
     case ModelFamily::kQwenVL2_5:
-        return qwen2_5_vl;
+        return kQwen25Vl;
     case ModelFamily::kQwenVL3:
-        return qwen3_vl;
+        return kQwen3Vl;
     case ModelFamily::kLlama:
-        return llama;
+        return kLlama;
     case ModelFamily::kSmolVLM2:
-        return smolvlm2;
+        return kSmolvlm2;
     }
 
-    return qwen2_vl;
+    return kQwen2Vl;
 }
 
-bool infer_embedding_shape_from_attr(
+bool inferEmbeddingShapeFromAttr(
     const rknn_tensor_attr& attr,
-    int& image_tokens,
-    int& embed_size)
+    int& imageTokens,
+    int& embedSize)
 {
-    for (uint32_t i = 0; i + 1 < attr.n_dims && i + 1 < RKNN_MAX_DIMS; ++i) {
+    for (std::uint32_t i = 0; i + 1 < attr.n_dims && i + 1 < RKNN_MAX_DIMS; ++i) {
         if (attr.dims[i] > 1 && attr.dims[i + 1] > 1) {
-            image_tokens = attr.dims[i];
-            embed_size = attr.dims[i + 1];
+            imageTokens = attr.dims[i];
+            embedSize = attr.dims[i + 1];
             return true;
         }
     }
     return false;
 }
 
-cv::Mat pad_to_square(const cv::Mat& image, const cv::Scalar& background_color)
+cv::Mat padToSquare(const cv::Mat& image, const cv::Scalar& backgroundColor)
 {
     const int width = image.cols;
     const int height = image.rows;
@@ -173,30 +175,30 @@ cv::Mat pad_to_square(const cv::Mat& image, const cv::Scalar& background_color)
     }
 
     const int size = std::max(width, height);
-    cv::Mat square(size, size, image.type(), background_color);
-    const int x_offset = (size - width) / 2;
-    const int y_offset = (size - height) / 2;
-    image.copyTo(square(cv::Rect(x_offset, y_offset, width, height)));
+    cv::Mat square(size, size, image.type(), backgroundColor);
+    const int xOffset = (size - width) / 2;
+    const int yOffset = (size - height) / 2;
+    image.copyTo(square(cv::Rect(xOffset, yOffset, width, height)));
     return square;
 }
 
-cv::Mat center_crop_to_aspect(const cv::Mat& image, double target_aspect)
+cv::Mat centerCropToAspect(const cv::Mat& image, double targetAspect)
 {
-    const double source_aspect = static_cast<double>(image.cols) / static_cast<double>(image.rows);
-    if (source_aspect > target_aspect) {
-        const int crop_width = static_cast<int>(image.rows * target_aspect);
-        const int x_offset = (image.cols - crop_width) / 2;
-        return image(cv::Rect(x_offset, 0, crop_width, image.rows)).clone();
+    const double sourceAspect = static_cast<double>(image.cols) / static_cast<double>(image.rows);
+    if (sourceAspect > targetAspect) {
+        const int cropWidth = static_cast<int>(image.rows * targetAspect);
+        const int xOffset = (image.cols - cropWidth) / 2;
+        return image(cv::Rect(xOffset, 0, cropWidth, image.rows)).clone();
     }
 
-    const int crop_height = static_cast<int>(image.cols / target_aspect);
-    const int y_offset = (image.rows - crop_height) / 2;
-    return image(cv::Rect(0, y_offset, image.cols, crop_height)).clone();
+    const int cropHeight = static_cast<int>(image.cols / targetAspect);
+    const int yOffset = (image.rows - cropHeight) / 2;
+    return image(cv::Rect(0, yOffset, image.cols, cropHeight)).clone();
 }
 
 }  // namespace
 
-bool parse_model_family(std::string_view value, ModelFamily& family)
+bool parseModelFamily(std::string_view value, ModelFamily& family)
 {
     if (value == "qwen2-vl" || value == "qwen2_vl" || value == "qwen2") {
         family = ModelFamily::kQwenVL2;
@@ -231,17 +233,17 @@ namespace {
 
 // Recognised INI keys for a model section. Mirrors the command-line options,
 // with underscores instead of hyphens.
-bool is_recognised_model_key(const std::string& key)
+bool isRecognisedModelKey(const std::string& key)
 {
     return key == "model_family" || key == "vision" || key == "llm"
         || key == "max_new_tokens" || key == "max_context_len" || key == "cores";
 }
 
-bool parse_int_value(
+bool parseIntValue(
     const std::string& key,
     const std::string& value,
-    int min_value,
-    int max_value,
+    int minValue,
+    int maxValue,
     int& parsed,
     std::string& error)
 {
@@ -249,9 +251,9 @@ bool parse_int_value(
     char* end = nullptr;
     const long result = std::strtol(value.c_str(), &end, 10);
     if (value.empty() || *end != '\0' || errno == ERANGE
-        || result < min_value || result > max_value) {
+        || result < minValue || result > maxValue) {
         error = "invalid value for '" + key + "': " + value
-            + " (expected " + std::to_string(min_value) + "-" + std::to_string(max_value) + ")";
+            + " (expected " + std::to_string(minValue) + "-" + std::to_string(maxValue) + ")";
         return false;
     }
 
@@ -261,15 +263,15 @@ bool parse_int_value(
 
 }  // namespace
 
-bool parse_model_configs_from_ini(
-    const std::string& ini_text,
+bool parseModelConfigsFromIni(
+    const std::string& iniText,
     std::vector<NamedModelConfig>& out,
     std::string& error)
 {
     out.clear();
 
     ini::Document document;
-    if (!ini::parse(ini_text, document, error)) {
+    if (!ini::parse(iniText, document, error)) {
         return false;
     }
 
@@ -282,28 +284,28 @@ bool parse_model_configs_from_ini(
         ModelConfig config;
 
         for (const auto& entry : section.entries) {
-            if (!is_recognised_model_key(entry.first)) {
+            if (!isRecognisedModelKey(entry.first)) {
                 error = "[" + section.name + "]: unknown key '" + entry.first + "'";
                 return false;
             }
         }
 
         if (const auto family = section.get("model_family"); family.has_value()) {
-            if (!parse_model_family(*family, config.model_family)) {
+            if (!parseModelFamily(*family, config.modelFamily)) {
                 error = "[" + section.name + "]: invalid model_family: " + *family;
                 return false;
             }
         }
 
         if (const auto value = section.get("max_new_tokens"); value.has_value()) {
-            if (!parse_int_value("max_new_tokens", *value, 1, INT_MAX, config.max_new_tokens, error)) {
+            if (!parseIntValue("max_new_tokens", *value, 1, INT_MAX, config.maxNewTokens, error)) {
                 error = "[" + section.name + "]: " + error;
                 return false;
             }
         }
 
         if (const auto value = section.get("max_context_len"); value.has_value()) {
-            if (!parse_int_value("max_context_len", *value, 1, INT_MAX, config.max_context_len, error)) {
+            if (!parseIntValue("max_context_len", *value, 1, INT_MAX, config.maxContextLen, error)) {
                 error = "[" + section.name + "]: " + error;
                 return false;
             }
@@ -311,11 +313,11 @@ bool parse_model_configs_from_ini(
 
         if (const auto value = section.get("cores"); value.has_value()) {
             int cores = 0;
-            if (!parse_int_value("cores", *value, 1, 3, cores, error)) {
+            if (!parseIntValue("cores", *value, 1, 3, cores, error)) {
                 error = "[" + section.name + "]: " + error;
                 return false;
             }
-            config.num_cores = cores;
+            config.numCores = cores;
         }
 
         const auto llm = section.get("llm");
@@ -323,20 +325,20 @@ bool parse_model_configs_from_ini(
             error = "[" + section.name + "]: missing required key 'llm'";
             return false;
         }
-        config.language_model_path = *llm;
+        config.languageModelPath = *llm;
 
         const auto vision = section.get("vision");
-        const bool has_vision = vision.has_value() && !vision->empty();
-        if (model_family_uses_vision_encoder(config.model_family)) {
-            if (!has_vision) {
+        const bool hasVision = vision.has_value() && !vision->empty();
+        if (modelFamilyUsesVisionEncoder(config.modelFamily)) {
+            if (!hasVision) {
                 error = "[" + section.name + "]: missing required key 'vision' for "
-                    + model_family_name(config.model_family);
+                    + modelFamilyName(config.modelFamily);
                 return false;
             }
-            config.vision_encoder_path = *vision;
-        } else if (has_vision) {
+            config.visionEncoderPath = *vision;
+        } else if (hasVision) {
             error = "[" + section.name + "]: 'vision' is not supported for "
-                + model_family_name(config.model_family);
+                + modelFamilyName(config.modelFamily);
             return false;
         }
 
@@ -346,7 +348,7 @@ bool parse_model_configs_from_ini(
     return true;
 }
 
-const char* model_family_name(ModelFamily family)
+const char* modelFamilyName(ModelFamily family)
 {
     switch (family) {
     case ModelFamily::kQwenVL2:
@@ -364,79 +366,79 @@ const char* model_family_name(ModelFamily family)
     return "qwen2-vl";
 }
 
-const char* model_family_image_placeholder(ModelFamily family)
+const char* modelFamilyImagePlaceholder(ModelFamily family)
 {
-    return model_profile_for(family).image_placeholder;
+    return modelProfileFor(family).imagePlaceholder;
 }
 
-const ImagePreprocessProfile& model_family_image_preprocess_profile(ModelFamily family)
+const ImagePreprocessProfile& modelFamilyImagePreprocessProfile(ModelFamily family)
 {
-    return model_profile_for(family).image_preprocess;
+    return modelProfileFor(family).imagePreprocess;
 }
 
-bool model_family_uses_vision_encoder(ModelFamily family)
+bool modelFamilyUsesVisionEncoder(ModelFamily family)
 {
-    return model_profile_for(family).uses_vision_encoder;
+    return modelProfileFor(family).usesVisionEncoder;
 }
 
-bool model_family_supports_multimodal(ModelFamily family)
+bool modelFamilySupportsMultimodal(ModelFamily family)
 {
-    return model_profile_for(family).supports_multimodal;
+    return modelProfileFor(family).supportsMultimodal;
 }
 
-int preprocess_image_for_vision_encoder(
+int preprocessImageForVisionEncoder(
     ModelFamily family,
-    const cv::Mat& image_bgr,
-    cv::Size target_size,
+    const cv::Mat& imageBgr,
+    cv::Size targetSize,
     cv::Mat& output)
 {
-    if (image_bgr.empty()) {
+    if (imageBgr.empty()) {
         LOG(ERROR) << "Image input is empty";
         return -1;
     }
-    if (target_size.width <= 0 || target_size.height <= 0) {
-        LOG(ERROR) << "Invalid target image size: " << target_size.width << "x" << target_size.height;
+    if (targetSize.width <= 0 || targetSize.height <= 0) {
+        LOG(ERROR) << "Invalid target image size: " << targetSize.width << "x" << targetSize.height;
         return -1;
     }
 
-    const auto& profile = model_family_image_preprocess_profile(family);
-    if (profile.normalize_in_host) {
+    const auto& profile = modelFamilyImagePreprocessProfile(family);
+    if (profile.normalizeInHost) {
         LOG(ERROR) << "Host-side image normalization is not supported by the current uint8 RKNN input path";
         return -1;
     }
 
     cv::Mat color;
     if (profile.rgb) {
-        if (image_bgr.channels() == 3) {
-            cv::cvtColor(image_bgr, color, cv::COLOR_BGR2RGB);
-        } else if (image_bgr.channels() == 4) {
-            cv::cvtColor(image_bgr, color, cv::COLOR_BGRA2RGB);
+        if (imageBgr.channels() == 3) {
+            cv::cvtColor(imageBgr, color, cv::COLOR_BGR2RGB);
+        } else if (imageBgr.channels() == 4) {
+            cv::cvtColor(imageBgr, color, cv::COLOR_BGRA2RGB);
         } else {
-            LOG(ERROR) << "Unsupported image channel count for RGB conversion: " << image_bgr.channels();
+            LOG(ERROR) << "Unsupported image channel count for RGB conversion: " << imageBgr.channels();
             return -1;
         }
     } else {
-        if (image_bgr.channels() != 3) {
-            LOG(ERROR) << "Unsupported image channel count: " << image_bgr.channels();
+        if (imageBgr.channels() != 3) {
+            LOG(ERROR) << "Unsupported image channel count: " << imageBgr.channels();
             return -1;
         }
-        color = image_bgr.clone();
+        color = imageBgr.clone();
     }
 
     cv::Mat resized;
-    switch (profile.resize_mode) {
+    switch (profile.resizeMode) {
     case ResizeMode::kPadToSquare: {
-        cv::Mat square = pad_to_square(color, cv::Scalar(profile.pad_r, profile.pad_g, profile.pad_b));
-        cv::resize(square, resized, target_size, 0, 0, cv::INTER_LINEAR);
+        cv::Mat square = padToSquare(color, cv::Scalar(profile.padR, profile.padG, profile.padB));
+        cv::resize(square, resized, targetSize, 0, 0, cv::INTER_LINEAR);
         break;
     }
     case ResizeMode::kStretch:
-        cv::resize(color, resized, target_size, 0, 0, cv::INTER_LINEAR);
+        cv::resize(color, resized, targetSize, 0, 0, cv::INTER_LINEAR);
         break;
     case ResizeMode::kCenterCrop: {
-        const double target_aspect = static_cast<double>(target_size.width) / static_cast<double>(target_size.height);
-        cv::Mat cropped = center_crop_to_aspect(color, target_aspect);
-        cv::resize(cropped, resized, target_size, 0, 0, cv::INTER_LINEAR);
+        const double targetAspect = static_cast<double>(targetSize.width) / static_cast<double>(targetSize.height);
+        cv::Mat cropped = centerCropToAspect(color, targetAspect);
+        cv::resize(cropped, resized, targetSize, 0, 0, cv::INTER_LINEAR);
         break;
     }
     }
@@ -445,158 +447,158 @@ int preprocess_image_for_vision_encoder(
     return 0;
 }
 
-int Session::init_vision_encoder()
+int Session::initVisionEncoder()
 {
     memset(&encoder_, 0, sizeof(encoder_));
 
-    // Initialize vision encoder
+    // Initialize vision encoder.
     rknn_context ctx = 0;
-    if (!config_.vision_encoder_path.has_value() || config_.vision_encoder_path->empty()) {
-        LOG(ERROR) << "Vision encoder path is required for " << model_family_name(config_.model_family);
+    if (!config_.visionEncoderPath.has_value() || config_.visionEncoderPath->empty()) {
+        LOG(ERROR) << "Vision encoder path is required for " << modelFamilyName(config_.modelFamily);
         return -1;
     }
-    int ret = rknn_init(&ctx, (void*)config_.vision_encoder_path->c_str(), 0, 0, NULL);
+    int ret = rknn_init(&ctx, static_cast<void*>(const_cast<char*>(config_.visionEncoderPath->c_str())), 0, 0, nullptr);
     if (ret < 0) {
-        LOG(ERROR) << "Failed to initialize RKNN, error=" << rknn_utils::rknn_error_message(ret);
+        LOG(ERROR) << "Failed to initialize RKNN, error=" << rknn_utils::rknnErrorMessage(ret);
         return -1;
     }
 
-    rknn_utils::log_rknn_version(ctx);
+    rknn_utils::logRknnVersion(ctx);
 
-    // Set RKNN core mask if specified in the configuration
-    if (config_.num_cores.has_value()) {
-        int core_num = config_.num_cores.value();
-        if (core_num == 1) {
+    // Set RKNN core mask if specified in the configuration.
+    if (config_.numCores.has_value()) {
+        int coreNum = config_.numCores.value();
+        if (coreNum == 1) {
             ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_0);
-        } else if (core_num == 2) {
+        } else if (coreNum == 2) {
             ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_0_1);
-        } else if (core_num == 3) {
+        } else if (coreNum == 3) {
             ret = rknn_set_core_mask(ctx, RKNN_NPU_CORE_0_1_2);
         } else {
-            LOG(ERROR) << "Invalid RKNN core count: " << core_num;
+            LOG(ERROR) << "Invalid RKNN core count: " << coreNum;
             rknn_destroy(ctx);
             return -1;
         }
         if (ret != 0) {
-            LOG(ERROR) << "Failed to set RKNN core mask, error=" << rknn_utils::rknn_error_message(ret);
+            LOG(ERROR) << "Failed to set RKNN core mask, error=" << rknn_utils::rknnErrorMessage(ret);
             return -1;
         }
     }
 
-    // Query model I/O information
-    ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &encoder_.io_num, sizeof(encoder_.io_num));
+    // Query model I/O information.
+    ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &encoder_.ioNum, sizeof(encoder_.ioNum));
     if (ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to query RKNN input/output count, error=" << rknn_utils::rknn_error_message(ret);
+        LOG(ERROR) << "Failed to query RKNN input/output count, error=" << rknn_utils::rknnErrorMessage(ret);
         return -1;
     }
 
-    if (encoder_.io_num.n_input <= 0 || encoder_.io_num.n_output <= 0) {
-        LOG(ERROR) << "Invalid RKNN I/O count: n_input=" << encoder_.io_num.n_input
-                   << " n_output=" << encoder_.io_num.n_output;
+    if (encoder_.ioNum.n_input <= 0 || encoder_.ioNum.n_output <= 0) {
+        LOG(ERROR) << "Invalid RKNN I/O count: n_input=" << encoder_.ioNum.n_input
+                   << " n_output=" << encoder_.ioNum.n_output;
         return -1;
     }
     if (Logger::verbose()) {
-        LOG(VERBOSE) << "RKNN model I/O count: inputs=" << encoder_.io_num.n_input
-                     << " outputs=" << encoder_.io_num.n_output;
+        LOG(VERBOSE) << "RKNN model I/O count: inputs=" << encoder_.ioNum.n_input
+                     << " outputs=" << encoder_.ioNum.n_output;
     }
 
-    encoder_.input_attrs = static_cast<rknn_tensor_attr*>(calloc(
-        encoder_.io_num.n_input,
+    encoder_.inputAttrs = static_cast<rknn_tensor_attr*>(calloc(
+        encoder_.ioNum.n_input,
         sizeof(rknn_tensor_attr)));
-    if (encoder_.input_attrs == nullptr) {
+    if (encoder_.inputAttrs == nullptr) {
         LOG(ERROR) << "Failed to allocate input tensor attribute buffers";
         return -1;
     }
 
-    encoder_.output_attrs = static_cast<rknn_tensor_attr*>(calloc(
-        encoder_.io_num.n_output,
+    encoder_.outputAttrs = static_cast<rknn_tensor_attr*>(calloc(
+        encoder_.ioNum.n_output,
         sizeof(rknn_tensor_attr)));
-    if (encoder_.output_attrs == nullptr) {
+    if (encoder_.outputAttrs == nullptr) {
         LOG(ERROR) << "Failed to allocate output tensor attribute buffers";
         return -1;
     }
 
-    for (auto i = 0; i < encoder_.io_num.n_input; ++i) {
-        encoder_.input_attrs[i].index = i;
-        ret = rknn_query(ctx, RKNN_QUERY_INPUT_ATTR, &encoder_.input_attrs[i], sizeof(rknn_tensor_attr));
+    for (auto i = 0; i < encoder_.ioNum.n_input; ++i) {
+        encoder_.inputAttrs[i].index = i;
+        ret = rknn_query(ctx, RKNN_QUERY_INPUT_ATTR, &encoder_.inputAttrs[i], sizeof(rknn_tensor_attr));
         if (ret != RKNN_SUCC) {
             LOG(ERROR) << "Failed to query RKNN input attr for index " << i
-                       << ", error=" << rknn_utils::rknn_error_message(ret);
+                       << ", error=" << rknn_utils::rknnErrorMessage(ret);
             return -1;
         }
         if (Logger::verbose()) {
-            LOG(VERBOSE) << "RKNN input tensor: " << rknn_utils::tensor_attr_to_string(encoder_.input_attrs[i]);
+            LOG(VERBOSE) << "RKNN input tensor: " << rknn_utils::tensorAttrToString(encoder_.inputAttrs[i]);
         }
     }
 
-    for (auto i = 0; i < encoder_.io_num.n_output; ++i) {
-        encoder_.output_attrs[i].index = i;
-        ret = rknn_query(ctx, RKNN_QUERY_OUTPUT_ATTR, &encoder_.output_attrs[i], sizeof(rknn_tensor_attr));
+    for (auto i = 0; i < encoder_.ioNum.n_output; ++i) {
+        encoder_.outputAttrs[i].index = i;
+        ret = rknn_query(ctx, RKNN_QUERY_OUTPUT_ATTR, &encoder_.outputAttrs[i], sizeof(rknn_tensor_attr));
         if (ret != RKNN_SUCC) {
             LOG(ERROR) << "Failed to query RKNN output attr for index " << i
-                       << ", error=" << rknn_utils::rknn_error_message(ret);
+                       << ", error=" << rknn_utils::rknnErrorMessage(ret);
             return -1;
         }
         if (Logger::verbose()) {
-            LOG(VERBOSE) << "RKNN output tensor: " << rknn_utils::tensor_attr_to_string(encoder_.output_attrs[i]);
+            LOG(VERBOSE) << "RKNN output tensor: " << rknn_utils::tensorAttrToString(encoder_.outputAttrs[i]);
         }
     }
 
-    if (!infer_embedding_shape_from_attr(
-            encoder_.output_attrs[0],
-            encoder_.model_image_token,
-            encoder_.model_embed_size)) {
+    if (!inferEmbeddingShapeFromAttr(
+            encoder_.outputAttrs[0],
+            encoder_.modelImageToken,
+            encoder_.modelEmbedSize)) {
         LOG(ERROR) << "Could not infer image token and embedding dimensions from first RKNN output tensor";
         return -1;
     }
 
-    if (encoder_.input_attrs[0].fmt == RKNN_TENSOR_NCHW) {
-        encoder_.model_channel = encoder_.input_attrs[0].dims[1];
-        encoder_.model_height = encoder_.input_attrs[0].dims[2];
-        encoder_.model_width = encoder_.input_attrs[0].dims[3];
+    if (encoder_.inputAttrs[0].fmt == RKNN_TENSOR_NCHW) {
+        encoder_.modelChannel = encoder_.inputAttrs[0].dims[1];
+        encoder_.modelHeight = encoder_.inputAttrs[0].dims[2];
+        encoder_.modelWidth = encoder_.inputAttrs[0].dims[3];
     } else {
-        encoder_.model_height = encoder_.input_attrs[0].dims[1];
-        encoder_.model_width = encoder_.input_attrs[0].dims[2];
-        encoder_.model_channel = encoder_.input_attrs[0].dims[3];
+        encoder_.modelHeight = encoder_.inputAttrs[0].dims[1];
+        encoder_.modelWidth = encoder_.inputAttrs[0].dims[2];
+        encoder_.modelChannel = encoder_.inputAttrs[0].dims[3];
     }
     if (Logger::verbose()) {
-        LOG(VERBOSE) << "RKNN vision input shape: height=" << encoder_.model_height
-                     << " width=" << encoder_.model_width
-                     << " channel=" << encoder_.model_channel;
-        LOG(VERBOSE) << "RKNN image embedding shape: tokens=" << encoder_.model_image_token
-                     << " embed_size=" << encoder_.model_embed_size
-                     << " output_tensors=" << encoder_.io_num.n_output;
+        LOG(VERBOSE) << "RKNN vision input shape: height=" << encoder_.modelHeight
+                     << " width=" << encoder_.modelWidth
+                     << " channel=" << encoder_.modelChannel;
+        LOG(VERBOSE) << "RKNN image embedding shape: tokens=" << encoder_.modelImageToken
+                     << " embedSize=" << encoder_.modelEmbedSize
+                     << " output_tensors=" << encoder_.ioNum.n_output;
     }
 
-    // Save context for later use
-    encoder_.rknn_ctx = ctx;
+    // Save context for later use.
+    encoder_.rknnContext = ctx;
 
     return 0;
 }
 
-int Session::init_text_decoder()
+int Session::initTextDecoder()
 {
-    // Prepare RKLLM parameters based on the configuration
-    const auto& profile = model_profile_for(config_.model_family);
+    // Prepare RKLLM parameters based on the configuration.
+    const auto& profile = modelProfileFor(config_.modelFamily);
     RKLLMParam params = rkllm_createDefaultParam();
-    params.model_path = config_.language_model_path.c_str();
+    params.model_path = config_.languageModelPath.c_str();
     params.top_k = 1;
-    params.max_new_tokens = config_.max_new_tokens;
-    params.max_context_len = config_.max_context_len;
+    params.max_new_tokens = config_.maxNewTokens;
+    params.max_context_len = config_.maxContextLen;
     params.skip_special_token = true;
-    params.extend_param.base_domain_id = profile.base_domain_id;
-    params.img_start = profile.img_start;
-    params.img_end = profile.img_end;
-    params.img_content = profile.img_content;
+    params.extend_param.base_domain_id = profile.baseDomainId;
+    params.img_start = profile.imgStart;
+    params.img_end = profile.imgEnd;
+    params.img_content = profile.imgContent;
 
-    // Initialize RKLLM session
+    // Initialize RKLLM session.
     int ret = rkllm_init(&decoder_.handle, &params, &callback);
     if (ret != 0) {
         LOG(ERROR) << "Failed to initialize RKLLM, error=" << ret;
         return -1;
     }
 
-    if (profile.use_chat_template) {
+    if (profile.useChatTemplate) {
         ret = rkllm_set_chat_template(
             decoder_.handle,
             "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n",
@@ -608,30 +610,30 @@ int Session::init_text_decoder()
         }
     }
 
-    rknn_utils::log_rkllm_version();
+    rknn_utils::logRkllmVersion();
 
     return 0;
 }
 
-void Session::cleanup_vision_encoder()
+void Session::cleanupVisionEncoder()
 {
-    if (encoder_.input_attrs) {
-        free(encoder_.input_attrs);
-        encoder_.input_attrs = nullptr;
+    if (encoder_.inputAttrs) {
+        free(encoder_.inputAttrs);
+        encoder_.inputAttrs = nullptr;
     }
 
-    if (encoder_.output_attrs) {
-        free(encoder_.output_attrs);
-        encoder_.output_attrs = nullptr;
+    if (encoder_.outputAttrs) {
+        free(encoder_.outputAttrs);
+        encoder_.outputAttrs = nullptr;
     }
 
-    if (encoder_.rknn_ctx) {
-        rknn_destroy(encoder_.rknn_ctx);
-        encoder_.rknn_ctx = 0;
+    if (encoder_.rknnContext) {
+        rknn_destroy(encoder_.rknnContext);
+        encoder_.rknnContext = 0;
     }
 }
 
-void Session::cleanup_text_decoder()
+void Session::cleanupTextDecoder()
 {
     if (decoder_.handle) {
         rkllm_destroy(decoder_.handle);
@@ -640,22 +642,24 @@ void Session::cleanup_text_decoder()
 }
 
 Session::Session(ModelConfig config)
-  : config_(std::move(config)) {}
+    : config_(std::move(config))
+{
+}
 
 Session::~Session()
 {
-    cleanup_vision_encoder();
-    cleanup_text_decoder();
+    cleanupVisionEncoder();
+    cleanupTextDecoder();
 }
 
 int Session::init()
 {
-    if (init_text_decoder() != 0) {
+    if (initTextDecoder() != 0) {
         return -1;
     }
 
-    if (model_family_uses_vision_encoder(config_.model_family)) {
-        if (init_vision_encoder() != 0) {
+    if (modelFamilyUsesVisionEncoder(config_.modelFamily)) {
+        if (initVisionEncoder() != 0) {
             return -1;
         }
     }
@@ -668,14 +672,14 @@ const ModelConfig& Session::config() const noexcept
     return config_;
 }
 
-bool Session::is_ready() const noexcept
+bool Session::isReady() const noexcept
 {
     if (decoder_.handle == nullptr) {
         return false;
     }
 
-    if (model_family_uses_vision_encoder(config_.model_family)) {
-        return encoder_.rknn_ctx != 0;
+    if (modelFamilyUsesVisionEncoder(config_.modelFamily)) {
+        return encoder_.rknnContext != 0;
     }
 
     return true;
@@ -683,112 +687,116 @@ bool Session::is_ready() const noexcept
 
 std::string Session::describe() const
 {
-    const auto& profile = model_profile_for(config_.model_family);
+    const auto& profile = modelProfileFor(config_.modelFamily);
 
     std::ostringstream stream;
     stream << "VLM RKNN session";
     stream << " target=" << VLM_RKNN_TARGET;
-    stream << " model_family=" << model_family_name(config_.model_family);
-    stream << " requires_vision_encoder=" << (profile.uses_vision_encoder ? "yes" : "no");
-    stream << " vision_encoder_path=" << (config_.vision_encoder_path.has_value() && !config_.vision_encoder_path->empty() ? *config_.vision_encoder_path : "<unset>");
-    stream << " language_model_path=" << (config_.language_model_path.empty() ? "<unset>" : config_.language_model_path);
+    stream << " model_family=" << modelFamilyName(config_.modelFamily);
+    stream << " requires_vision_encoder=" << (profile.usesVisionEncoder ? "yes" : "no");
+    stream << " vision_encoder_path="
+           << (config_.visionEncoderPath.has_value() && !config_.visionEncoderPath->empty()
+                   ? *config_.visionEncoderPath
+                   : "<unset>");
+    stream << " language_model_path="
+           << (config_.languageModelPath.empty() ? "<unset>" : config_.languageModelPath);
     return stream.str();
 }
 
-bool Session::prompt_contains_image(const std::string& prompt) const
+bool Session::promptContainsImage(const std::string& prompt) const
 {
-    const auto& profile = model_profile_for(config_.model_family);
-    return profile.supports_multimodal &&
-        profile.image_placeholder[0] != '\0' &&
-        prompt.find(profile.image_placeholder) != std::string::npos;
+    const auto& profile = modelProfileFor(config_.modelFamily);
+    return profile.supportsMultimodal &&
+        profile.imagePlaceholder[0] != '\0' &&
+        prompt.find(profile.imagePlaceholder) != std::string::npos;
 }
 
-void Session::set_output_callback(OutputCallback callback)
+void Session::setOutputCallback(OutputCallback callback)
 {
-    output_callback_ = std::move(callback);
+    outputCallback_ = std::move(callback);
 }
 
-int Session::encode(void* img_data, float* out_result)
+int Session::encode(void* imgData, float* outResult)
 {
-    if (encoder_.rknn_ctx == 0) {
+    if (encoder_.rknnContext == 0) {
         LOG(ERROR) << "Vision encoder has not been initialized";
         return -1;
     }
 
-    if (img_data == nullptr) {
+    if (imgData == nullptr) {
         LOG(ERROR) << "Image input buffer is null";
         return -1;
     }
 
-    if (out_result == nullptr) {
+    if (outResult == nullptr) {
         LOG(ERROR) << "Image embedding output buffer is null";
         return -1;
     }
 
-    if (encoder_.io_num.n_input != 1) {
-        LOG(ERROR) << "Unsupported RKNN input count: " << encoder_.io_num.n_input;
+    if (encoder_.ioNum.n_input != 1) {
+        LOG(ERROR) << "Unsupported RKNN input count: " << encoder_.ioNum.n_input;
         return -1;
     }
 
-    const auto& input_attr = encoder_.input_attrs[0];
+    const auto& inputAttr = encoder_.inputAttrs[0];
     rknn_input input;
     memset(&input, 0, sizeof(input));
     input.index = 0;
-    input.buf = img_data;
-    input.size = input_attr.n_elems;
+    input.buf = imgData;
+    input.size = inputAttr.n_elems;
     input.pass_through = 0;
     input.type = RKNN_TENSOR_UINT8;
     input.fmt = RKNN_TENSOR_NHWC;
 
-    int ret = rknn_inputs_set(encoder_.rknn_ctx, 1, &input);
+    int ret = rknn_inputs_set(encoder_.rknnContext, 1, &input);
     if (ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to set RKNN input, error=" << rknn_utils::rknn_error_message(ret);
+        LOG(ERROR) << "Failed to set RKNN input, error=" << rknn_utils::rknnErrorMessage(ret);
         return ret;
     }
 
-    ret = rknn_run(encoder_.rknn_ctx, nullptr);
+    ret = rknn_run(encoder_.rknnContext, nullptr);
     if (ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to run RKNN encoder, error=" << rknn_utils::rknn_error_message(ret);
+        LOG(ERROR) << "Failed to run RKNN encoder, error=" << rknn_utils::rknnErrorMessage(ret);
         return ret;
     }
 
-    std::vector<rknn_output> outputs(encoder_.io_num.n_output);
-    for (uint32_t i = 0; i < encoder_.io_num.n_output; ++i) {
+    std::vector<rknn_output> outputs(encoder_.ioNum.n_output);
+    for (std::uint32_t i = 0; i < encoder_.ioNum.n_output; ++i) {
         memset(&outputs[i], 0, sizeof(rknn_output));
         outputs[i].index = i;
         outputs[i].want_float = 1;
         outputs[i].is_prealloc = 0;
     }
 
-    ret = rknn_outputs_get(encoder_.rknn_ctx, encoder_.io_num.n_output, outputs.data(), nullptr);
+    ret = rknn_outputs_get(encoder_.rknnContext, encoder_.ioNum.n_output, outputs.data(), nullptr);
     if (ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to get RKNN output, error=" << rknn_utils::rknn_error_message(ret);
+        LOG(ERROR) << "Failed to get RKNN output, error=" << rknn_utils::rknnErrorMessage(ret);
         return ret;
     }
 
-    if (encoder_.io_num.n_output == 1) {
+    if (encoder_.ioNum.n_output == 1) {
         if (outputs[0].buf == nullptr) {
             LOG(ERROR) << "RKNN output buffer is null for index 0";
             ret = -1;
         } else {
-            memcpy(out_result, outputs[0].buf, outputs[0].size);
+            memcpy(outResult, outputs[0].buf, outputs[0].size);
         }
     } else {
-        for (uint32_t i = 0; i < encoder_.io_num.n_output; ++i) {
-            int output_tokens = 0;
-            int output_embed_size = 0;
-            if (!infer_embedding_shape_from_attr(encoder_.output_attrs[i], output_tokens, output_embed_size)) {
+        for (std::uint32_t i = 0; i < encoder_.ioNum.n_output; ++i) {
+            int outputTokens = 0;
+            int outputEmbedSize = 0;
+            if (!inferEmbeddingShapeFromAttr(encoder_.outputAttrs[i], outputTokens, outputEmbedSize)) {
                 LOG(ERROR) << "Could not infer embedding shape for RKNN output index " << i;
                 ret = -1;
                 break;
             }
-            if (output_tokens != encoder_.model_image_token ||
-                output_embed_size != encoder_.model_embed_size) {
+            if (outputTokens != encoder_.modelImageToken ||
+                outputEmbedSize != encoder_.modelEmbedSize) {
                 LOG(ERROR) << "Unsupported RKNN output shape at index " << i
-                           << ": expected tokens=" << encoder_.model_image_token
-                           << " embed_size=" << encoder_.model_embed_size
-                           << " but got tokens=" << output_tokens
-                           << " embed_size=" << output_embed_size;
+                           << ": expected tokens=" << encoder_.modelImageToken
+                           << " embedSize=" << encoder_.modelEmbedSize
+                           << " but got tokens=" << outputTokens
+                           << " embedSize=" << outputEmbedSize;
                 ret = -1;
                 break;
             }
@@ -800,25 +808,25 @@ int Session::encode(void* img_data, float* out_result)
         }
 
         if (ret == RKNN_SUCC) {
-            const size_t output_count = encoder_.io_num.n_output;
-            const size_t image_tokens = encoder_.model_image_token;
-            const size_t embed_size = encoder_.model_embed_size;
-            for (size_t token = 0; token < image_tokens; ++token) {
-                for (size_t output_index = 0; output_index < output_count; ++output_index) {
-                    const auto* output = static_cast<const float*>(outputs[output_index].buf);
+            const std::size_t outputCount = encoder_.ioNum.n_output;
+            const std::size_t imageTokens = encoder_.modelImageToken;
+            const std::size_t embedSize = encoder_.modelEmbedSize;
+            for (std::size_t token = 0; token < imageTokens; ++token) {
+                for (std::size_t outputIndex = 0; outputIndex < outputCount; ++outputIndex) {
+                    const auto* output = static_cast<const float*>(outputs[outputIndex].buf);
                     memcpy(
-                        out_result + token * output_count * embed_size + output_index * embed_size,
-                        output + token * embed_size,
-                        embed_size * sizeof(float));
+                        outResult + token * outputCount * embedSize + outputIndex * embedSize,
+                        output + token * embedSize,
+                        embedSize * sizeof(float));
                 }
             }
         }
     }
 
-    int release_ret = rknn_outputs_release(encoder_.rknn_ctx, encoder_.io_num.n_output, outputs.data());
-    if (release_ret != RKNN_SUCC) {
-        LOG(ERROR) << "Failed to release RKNN output buffers, error=" << rknn_utils::rknn_error_message(release_ret);
-        return release_ret;
+    int releaseRet = rknn_outputs_release(encoder_.rknnContext, encoder_.ioNum.n_output, outputs.data());
+    if (releaseRet != RKNN_SUCC) {
+        LOG(ERROR) << "Failed to release RKNN output buffers, error=" << rknn_utils::rknnErrorMessage(releaseRet);
+        return releaseRet;
     }
 
     if (ret != RKNN_SUCC) {
@@ -828,46 +836,46 @@ int Session::encode(void* img_data, float* out_result)
     return 0;
 }
 
-int Session::decode(const std::string& prompt, float* img_vec)
+int Session::decode(const std::string& prompt, float* imgVec)
 {
-    const auto& profile = model_profile_for(config_.model_family);
+    const auto& profile = modelProfileFor(config_.modelFamily);
 
-    last_decoded_text_.clear();
+    lastDecodedText_.clear();
 
-    RKLLMInferParam rkllm_infer_params;
-    memset(&rkllm_infer_params, 0, sizeof(RKLLMInferParam));
-    rkllm_infer_params.mode = RKLLM_INFER_GENERATE;
-    rkllm_infer_params.keep_history = profile.use_chat_template ? 1 : 0;
+    RKLLMInferParam rkllmInferParams;
+    memset(&rkllmInferParams, 0, sizeof(RKLLMInferParam));
+    rkllmInferParams.mode = RKLLM_INFER_GENERATE;
+    rkllmInferParams.keep_history = profile.useChatTemplate ? 1 : 0;
 
-    RKLLMInput rkllm_input;
-    memset(&rkllm_input, 0, sizeof(RKLLMInput));
-    if (!prompt_contains_image(prompt)) {
-        rkllm_input.input_type = RKLLM_INPUT_PROMPT;
-        rkllm_input.role = "user";
-        rkllm_input.prompt_input = (char*)prompt.c_str();
+    RKLLMInput rkllmInput;
+    memset(&rkllmInput, 0, sizeof(RKLLMInput));
+    if (!promptContainsImage(prompt)) {
+        rkllmInput.input_type = RKLLM_INPUT_PROMPT;
+        rkllmInput.role = "user";
+        rkllmInput.prompt_input = const_cast<char*>(prompt.c_str());
     } else {
-        if (img_vec == nullptr) {
-            LOG(ERROR) << "Prompt references " << profile.image_placeholder << " but no image embedding was provided";
+        if (imgVec == nullptr) {
+            LOG(ERROR) << "Prompt references " << profile.imagePlaceholder << " but no image embedding was provided";
             return -1;
         }
-        const size_t n_image_tokens = encoder_.model_image_token;
-        const size_t image_height = encoder_.model_height;
-        const size_t image_width = encoder_.model_width;
-        if (n_image_tokens == 0 || image_height == 0 || image_width == 0) {
+        const std::size_t imageTokens = encoder_.modelImageToken;
+        const std::size_t imageHeight = encoder_.modelHeight;
+        const std::size_t imageWidth = encoder_.modelWidth;
+        if (imageTokens == 0 || imageHeight == 0 || imageWidth == 0) {
             LOG(ERROR) << "Vision encoder metadata is not available for multimodal decoding";
             return -1;
         }
-        rkllm_input.input_type = RKLLM_INPUT_MULTIMODAL;
-        rkllm_input.role = "user";
-        rkllm_input.multimodal_input.prompt = (char*)prompt.c_str();
-        rkllm_input.multimodal_input.image_embed = img_vec;
-        rkllm_input.multimodal_input.n_image_tokens = n_image_tokens;
-        rkllm_input.multimodal_input.n_image = 1;
-        rkllm_input.multimodal_input.image_height = image_height;
-        rkllm_input.multimodal_input.image_width = image_width;
+        rkllmInput.input_type = RKLLM_INPUT_MULTIMODAL;
+        rkllmInput.role = "user";
+        rkllmInput.multimodal_input.prompt = const_cast<char*>(prompt.c_str());
+        rkllmInput.multimodal_input.image_embed = imgVec;
+        rkllmInput.multimodal_input.n_image_tokens = imageTokens;
+        rkllmInput.multimodal_input.n_image = 1;
+        rkllmInput.multimodal_input.image_height = imageHeight;
+        rkllmInput.multimodal_input.image_width = imageWidth;
     }
 
-    int ret = rkllm_run(decoder_.handle, &rkllm_input, &rkllm_infer_params, this);
+    int ret = rkllm_run(decoder_.handle, &rkllmInput, &rkllmInferParams, this);
     if (ret != 0) {
         LOG(ERROR) << "Failed to run RKLLM, error=" << ret;
         return ret;
@@ -876,25 +884,25 @@ int Session::decode(const std::string& prompt, float* img_vec)
     return 0;
 }
 
-int Session::callback(RKLLMResult *result, void *userdata, LLMCallState state)
+int Session::callback(RKLLMResult* result, void* userdata, LLMCallState state)
 {
-    Session *session = static_cast<Session*>(userdata);
+    Session* session = static_cast<Session*>(userdata);
 
     if (state == RKLLM_RUN_FINISH) {
         LOG(INFO) << "RKLLM run finished";
-        if (session->output_callback_) {
-            session->output_callback_(nullptr, state);
+        if (session->outputCallback_) {
+            session->outputCallback_(nullptr, state);
         }
     } else if (state == RKLLM_RUN_ERROR) {
         LOG(ERROR) << "RKLLM run error";
-        if (session->output_callback_) {
-            session->output_callback_(nullptr, state);
+        if (session->outputCallback_) {
+            session->outputCallback_(nullptr, state);
         }
     } else if (state == RKLLM_RUN_NORMAL) {
-        session->last_decoded_text_ += result->text;
-        LOG(INFO) << session->last_decoded_text_;
-        if (session->output_callback_) {
-            session->output_callback_(result->text, state);
+        session->lastDecodedText_ += result->text;
+        LOG(INFO) << session->lastDecodedText_;
+        if (session->outputCallback_) {
+            session->outputCallback_(result->text, state);
         }
     }
 

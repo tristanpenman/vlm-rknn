@@ -1,5 +1,6 @@
 #include <jni.h>
 
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -9,8 +10,8 @@
 #include <android/log.h>
 #include <opencv2/imgcodecs.hpp>
 
-#include "vlm_rknn.h"
 #include "rknn_utils.h"
+#include "vlm_rknn.h"
 
 #define LOG_TAG "vlm-rknn-jni"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -19,65 +20,65 @@ namespace {
 
 std::mutex g_mutex;
 std::unique_ptr<vlm_rknn::Session> g_session;
-std::vector<float> g_img_vec;
-bool g_has_image = false;
+std::vector<float> g_imageEmbedding;
+bool g_hasImage = false;
 
 struct JniCallbackContext {
     JavaVM* vm = nullptr;
     jobject callback = nullptr;
-    jmethodID on_text = nullptr;
-    jmethodID on_finish = nullptr;
-    jmethodID on_error = nullptr;
+    jmethodID onText = nullptr;
+    jmethodID onFinish = nullptr;
+    jmethodID onError = nullptr;
 };
 
-JNIEnv* acquire_env(JavaVM* vm, bool* out_attached)
+JNIEnv* acquireEnv(JavaVM* vm, bool* outAttached)
 {
     JNIEnv* env = nullptr;
     jint rc = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
     if (rc == JNI_OK) {
-        *out_attached = false;
+        *outAttached = false;
         return env;
     }
     if (rc == JNI_EDETACHED && vm->AttachCurrentThread(&env, nullptr) == JNI_OK) {
-        *out_attached = true;
+        *outAttached = true;
         return env;
     }
     return nullptr;
 }
 
-void release_env(JavaVM* vm, bool attached)
+void releaseEnv(JavaVM* vm, bool attached)
 {
     if (attached) {
         vm->DetachCurrentThread();
     }
 }
 
-bool resolve_callback_methods(JNIEnv* env, jobject callback, JniCallbackContext* ctx)
+bool resolveCallbackMethods(JNIEnv* env, jobject callback, JniCallbackContext* ctx)
 {
     jclass cls = env->GetObjectClass(callback);
     if (cls == nullptr) {
         LOGE("could not get callback class");
         return false;
     }
-    ctx->on_text = env->GetMethodID(cls, "onText", "(Ljava/lang/String;)V");
-    ctx->on_finish = env->GetMethodID(cls, "onFinish", "()V");
-    ctx->on_error = env->GetMethodID(cls, "onError", "()V");
+    ctx->onText = env->GetMethodID(cls, "onText", "(Ljava/lang/String;)V");
+    ctx->onFinish = env->GetMethodID(cls, "onFinish", "()V");
+    ctx->onError = env->GetMethodID(cls, "onError", "()V");
     env->DeleteLocalRef(cls);
-    if (ctx->on_text == nullptr || ctx->on_finish == nullptr || ctx->on_error == nullptr) {
+    if (ctx->onText == nullptr || ctx->onFinish == nullptr || ctx->onError == nullptr) {
         LOGE("could not resolve RknnLlmCallback methods");
         return false;
     }
     return true;
 }
 
-void dispatch_callback(const char* text, LLMCallState state, JniCallbackContext* ctx)
+void dispatchCallback(const char* text, LLMCallState state, JniCallbackContext* ctx)
 {
     if (ctx == nullptr || ctx->callback == nullptr) {
         return;
     }
 
     bool attached = false;
-    JNIEnv* env = acquire_env(ctx->vm, &attached);
+    JNIEnv* env = acquireEnv(ctx->vm, &attached);
     if (env == nullptr) {
         LOGE("could not acquire JNIEnv in callback");
         return;
@@ -87,14 +88,14 @@ void dispatch_callback(const char* text, LLMCallState state, JniCallbackContext*
         if (text != nullptr) {
             jstring jtext = env->NewStringUTF(text);
             if (jtext != nullptr) {
-                env->CallVoidMethod(ctx->callback, ctx->on_text, jtext);
+                env->CallVoidMethod(ctx->callback, ctx->onText, jtext);
                 env->DeleteLocalRef(jtext);
             }
         }
     } else if (state == RKLLM_RUN_FINISH) {
-        env->CallVoidMethod(ctx->callback, ctx->on_finish);
+        env->CallVoidMethod(ctx->callback, ctx->onFinish);
     } else if (state == RKLLM_RUN_ERROR) {
-        env->CallVoidMethod(ctx->callback, ctx->on_error);
+        env->CallVoidMethod(ctx->callback, ctx->onError);
     }
 
     if (env->ExceptionCheck()) {
@@ -102,124 +103,124 @@ void dispatch_callback(const char* text, LLMCallState state, JniCallbackContext*
         env->ExceptionClear();
     }
 
-    release_env(ctx->vm, attached);
+    releaseEnv(ctx->vm, attached);
 }
 
-jint rknnLlm_init(JNIEnv* env, jclass, jstring jmodel_family, jstring jencoder_path, jstring jllm_path)
+jint rknnLlmInit(JNIEnv* env, jclass, jstring jmodelFamily, jstring jencoderPath, jstring jllmPath)
 {
-    if (jmodel_family == nullptr || jencoder_path == nullptr || jllm_path == nullptr) {
+    if (jmodelFamily == nullptr || jencoderPath == nullptr || jllmPath == nullptr) {
         LOGE("model path is null");
         return -1;
     }
 
-    const char* model_family = env->GetStringUTFChars(jmodel_family, nullptr);
-    if (model_family == nullptr) {
+    const char* modelFamily = env->GetStringUTFChars(jmodelFamily, nullptr);
+    if (modelFamily == nullptr) {
         return -1;
     }
-    const char* encoder_path = env->GetStringUTFChars(jencoder_path, nullptr);
-    if (encoder_path == nullptr) {
-        env->ReleaseStringUTFChars(jmodel_family, model_family);
+    const char* encoderPath = env->GetStringUTFChars(jencoderPath, nullptr);
+    if (encoderPath == nullptr) {
+        env->ReleaseStringUTFChars(jmodelFamily, modelFamily);
         return -1;
     }
-    const char* llm_path = env->GetStringUTFChars(jllm_path, nullptr);
-    if (llm_path == nullptr) {
-        env->ReleaseStringUTFChars(jencoder_path, encoder_path);
-        env->ReleaseStringUTFChars(jmodel_family, model_family);
+    const char* llmPath = env->GetStringUTFChars(jllmPath, nullptr);
+    if (llmPath == nullptr) {
+        env->ReleaseStringUTFChars(jencoderPath, encoderPath);
+        env->ReleaseStringUTFChars(jmodelFamily, modelFamily);
         return -1;
     }
 
     vlm_rknn::ModelConfig config;
-    if (!vlm_rknn::parse_model_family(model_family, config.model_family)) {
-        LOGE("unknown model family: %s", model_family);
-        env->ReleaseStringUTFChars(jllm_path, llm_path);
-        env->ReleaseStringUTFChars(jencoder_path, encoder_path);
-        env->ReleaseStringUTFChars(jmodel_family, model_family);
+    if (!vlm_rknn::parseModelFamily(modelFamily, config.modelFamily)) {
+        LOGE("unknown model family: %s", modelFamily);
+        env->ReleaseStringUTFChars(jllmPath, llmPath);
+        env->ReleaseStringUTFChars(jencoderPath, encoderPath);
+        env->ReleaseStringUTFChars(jmodelFamily, modelFamily);
         return -1;
     }
-    if (vlm_rknn::model_family_uses_vision_encoder(config.model_family)) {
-        config.vision_encoder_path = encoder_path;
+    if (vlm_rknn::modelFamilyUsesVisionEncoder(config.modelFamily)) {
+        config.visionEncoderPath = encoderPath;
     }
-    config.language_model_path = llm_path;
-    config.max_new_tokens = 512;
-    config.max_context_len = 4096;
-    config.num_cores = 3;
+    config.languageModelPath = llmPath;
+    config.maxNewTokens = 512;
+    config.maxContextLen = 4096;
+    config.numCores = 3;
 
     auto session = std::make_unique<vlm_rknn::Session>(std::move(config));
     jint ret = static_cast<jint>(session->init());
 
-    env->ReleaseStringUTFChars(jllm_path, llm_path);
-    env->ReleaseStringUTFChars(jencoder_path, encoder_path);
-    env->ReleaseStringUTFChars(jmodel_family, model_family);
+    env->ReleaseStringUTFChars(jllmPath, llmPath);
+    env->ReleaseStringUTFChars(jencoderPath, encoderPath);
+    env->ReleaseStringUTFChars(jmodelFamily, modelFamily);
 
     std::lock_guard<std::mutex> lock(g_mutex);
     if (ret == 0) {
         g_session = std::move(session);
-        g_img_vec.clear();
-        g_has_image = false;
+        g_imageEmbedding.clear();
+        g_hasImage = false;
     }
     return ret;
 }
 
-jint rknnLlm_setImage(JNIEnv* env, jclass, jstring jimage_path)
+jint rknnLlmSetImage(JNIEnv* env, jclass, jstring jimagePath)
 {
-    if (jimage_path == nullptr) {
+    if (jimagePath == nullptr) {
         LOGE("image path is null");
         return -1;
     }
 
-    const char* image_path = env->GetStringUTFChars(jimage_path, nullptr);
-    if (image_path == nullptr) {
+    const char* imagePath = env->GetStringUTFChars(jimagePath, nullptr);
+    if (imagePath == nullptr) {
         return -1;
     }
 
-    cv::Mat image = cv::imread(image_path, cv::IMREAD_COLOR);
-    env->ReleaseStringUTFChars(jimage_path, image_path);
+    cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
+    env->ReleaseStringUTFChars(jimagePath, imagePath);
     if (image.empty()) {
         LOGE("could not decode image");
         return -1;
     }
 
     std::lock_guard<std::mutex> lock(g_mutex);
-    if (!g_session || !g_session->is_ready()) {
+    if (!g_session || !g_session->isReady()) {
         LOGE("not initialised");
         return -1;
     }
-    if (!vlm_rknn::model_family_uses_vision_encoder(g_session->config().model_family)) {
+    if (!vlm_rknn::modelFamilyUsesVisionEncoder(g_session->config().modelFamily)) {
         LOGE("active model family does not use a vision encoder");
         return -1;
     }
 
-    const auto& encoder = g_session->vision_encoder();
+    const auto& encoder = g_session->visionEncoder();
     cv::Mat preprocessed;
-    jint ret = static_cast<jint>(vlm_rknn::preprocess_image_for_vision_encoder(
-        g_session->config().model_family,
+    jint ret = static_cast<jint>(vlm_rknn::preprocessImageForVisionEncoder(
+        g_session->config().modelFamily,
         image,
-        cv::Size(encoder.model_width, encoder.model_height),
+        cv::Size(encoder.modelWidth, encoder.modelHeight),
         preprocessed));
     if (ret != 0) {
         LOGE("image preprocessing failed: %d", static_cast<int>(ret));
         return ret;
     }
 
-    const size_t total = static_cast<size_t>(encoder.model_image_token)
-        * static_cast<size_t>(encoder.model_embed_size)
-        * static_cast<size_t>(encoder.io_num.n_output);
-    g_img_vec.assign(total, 0.0f);
+    const std::size_t total = static_cast<std::size_t>(encoder.modelImageToken)
+        * static_cast<std::size_t>(encoder.modelEmbedSize)
+        * static_cast<std::size_t>(encoder.ioNum.n_output);
+    g_imageEmbedding.assign(total, 0.0f);
 
-    ret = static_cast<jint>(g_session->encode(preprocessed.data, g_img_vec.data()));
+    ret = static_cast<jint>(g_session->encode(preprocessed.data, g_imageEmbedding.data()));
 
     if (ret != 0) {
-        g_img_vec.clear();
-        g_has_image = false;
-        LOGE("image encoding failed: %s", rknn_utils::rknn_error_message(ret));
+        g_imageEmbedding.clear();
+        g_hasImage = false;
+        LOGE("image encoding failed: %s", rknn_utils::rknnErrorMessage(ret));
         return ret;
     }
 
-    g_has_image = true;
+    g_hasImage = true;
     return 0;
 }
 
-jint rknnLlm_run(JNIEnv* env, jclass, jstring jprompt, jobject jcallback)
+jint rknnLlmRun(JNIEnv* env, jclass, jstring jprompt, jobject jcallback)
 {
     if (jprompt == nullptr) {
         LOGE("prompt is null");
@@ -238,7 +239,7 @@ jint rknnLlm_run(JNIEnv* env, jclass, jstring jprompt, jobject jcallback)
     }
 
     if (jcallback != nullptr) {
-        if (!resolve_callback_methods(env, jcallback, &ctx)) {
+        if (!resolveCallbackMethods(env, jcallback, &ctx)) {
             env->ReleaseStringUTFChars(jprompt, prompt);
             return -1;
         }
@@ -248,21 +249,21 @@ jint rknnLlm_run(JNIEnv* env, jclass, jstring jprompt, jobject jcallback)
     jint ret = 0;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
-        if (!g_session || !g_session->is_ready()) {
+        if (!g_session || !g_session->isReady()) {
             LOGE("not initialised");
             ret = -1;
-        } else if (g_session->prompt_contains_image(prompt) && !g_has_image) {
+        } else if (g_session->promptContainsImage(prompt) && !g_hasImage) {
             LOGE("prompt references an image but no image is loaded");
             ret = -1;
         } else {
-            g_session->set_output_callback([&ctx](const char* text, LLMCallState state) {
-                dispatch_callback(text, state, &ctx);
+            g_session->setOutputCallback([&ctx](const char* text, LLMCallState state) {
+                dispatchCallback(text, state, &ctx);
             });
-            ret = static_cast<jint>(g_session->decode(prompt, g_has_image ? g_img_vec.data() : nullptr));
+            ret = static_cast<jint>(g_session->decode(prompt, g_hasImage ? g_imageEmbedding.data() : nullptr));
             if (ret != 0) {
                 LOGE("decoder run failed: %d", static_cast<int>(ret));
             }
-            g_session->set_output_callback(nullptr);
+            g_session->setOutputCallback(nullptr);
         }
     }
 
@@ -273,12 +274,12 @@ jint rknnLlm_run(JNIEnv* env, jclass, jstring jprompt, jobject jcallback)
     return ret;
 }
 
-void rknnLlm_cleanup(JNIEnv*, jclass)
+void rknnLlmCleanup(JNIEnv*, jclass)
 {
     std::lock_guard<std::mutex> lock(g_mutex);
     g_session.reset();
-    g_img_vec.clear();
-    g_has_image = false;
+    g_imageEmbedding.clear();
+    g_hasImage = false;
 }
 
 }  // namespace
@@ -298,10 +299,18 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*)
     }
 
     const JNINativeMethod methods[] = {
-        {"nativeInit", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlm_init)},
-        {"nativeSetImage", "(Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlm_setImage)},
-        {"nativeRun", "(Ljava/lang/String;Lcom/tristanpenman/vlmrknn/RknnLlmCallback;)I", reinterpret_cast<void*>(rknnLlm_run)},
-        {"nativeCleanup", "()V", reinterpret_cast<void*>(rknnLlm_cleanup)},
+        {
+            "nativeInit",
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I",
+            reinterpret_cast<void*>(rknnLlmInit),
+        },
+        {"nativeSetImage", "(Ljava/lang/String;)I", reinterpret_cast<void*>(rknnLlmSetImage)},
+        {
+            "nativeRun",
+            "(Ljava/lang/String;Lcom/tristanpenman/vlmrknn/RknnLlmCallback;)I",
+            reinterpret_cast<void*>(rknnLlmRun),
+        },
+        {"nativeCleanup", "()V", reinterpret_cast<void*>(rknnLlmCleanup)},
     };
 
     if (env->RegisterNatives(cls, methods, sizeof(methods) / sizeof(methods[0])) != JNI_OK) {

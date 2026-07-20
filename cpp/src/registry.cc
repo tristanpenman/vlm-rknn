@@ -12,72 +12,73 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "registry.h"
+
 #include <stdexcept>
 #include <utility>
 
 #include "logger.h"
-#include "registry.h"
 
-Registry::Registry(std::vector<vlm_rknn::NamedModelConfig> configs, size_t capacity)
-  : configs_(std::move(configs))
-  , capacity_(capacity == 0 ? 1 : capacity)
+Registry::Registry(std::vector<vlm_rknn::NamedModelConfig> configs, std::size_t capacity)
+    : configs_(std::move(configs))
+    , capacity_(capacity == 0 ? 1 : capacity)
 {
     if (configs_.empty()) {
         throw std::invalid_argument("At least one model configuration is required");
     }
 
     for (const auto& named : configs_) {
-        config_by_id_.emplace(named.model_id, &named.config);
+        configById_.emplace(named.modelId, &named.config);
     }
 
-    default_id_ = configs_.front().model_id;
+    defaultId_ = configs_.front().modelId;
 }
 
-const std::string& Registry::default_model_id() const noexcept
+const std::string& Registry::defaultModelId() const noexcept
 {
-    return default_id_;
+    return defaultId_;
 }
 
-bool Registry::has_model(const std::string& id) const
+bool Registry::hasModel(const std::string& id) const
 {
-    return config_by_id_.find(id) != config_by_id_.end();
+    return configById_.find(id) != configById_.end();
 }
 
-std::vector<std::string> Registry::model_ids() const
+std::vector<std::string> Registry::modelIds() const
 {
     std::vector<std::string> ids;
     ids.reserve(configs_.size());
     for (const auto& named : configs_) {
-        ids.push_back(named.model_id);
+        ids.push_back(named.modelId);
     }
     return ids;
 }
 
-bool Registry::default_ready() const
+bool Registry::defaultReady() const
 {
-    const auto it = loaded_.find(default_id_);
-    return it != loaded_.end() && it->second->is_ready();
+    const auto it = loaded_.find(defaultId_);
+    return it != loaded_.end() && it->second->isReady();
 }
 
 vlm_rknn::Session* Registry::acquire(const std::string& id)
 {
-    const auto config_it = config_by_id_.find(id);
-    if (config_it == config_by_id_.end()) {
+    const auto configIt = configById_.find(id);
+    if (configIt == configById_.end()) {
         return nullptr;
     }
 
-    const auto loaded_it = loaded_.find(id);
-    if (loaded_it != loaded_.end()) {
+    const auto loadedIt = loaded_.find(id);
+    if (loadedIt != loaded_.end()) {
         touch(id);
-        return loaded_it->second.get();
+        return loadedIt->second.get();
     }
 
     while (loaded_.size() >= capacity_) {
-        evict_lru();
+        evictLru();
     }
 
-    auto session = std::make_unique<vlm_rknn::Session>(*config_it->second);
-    if (session->init() != 0 || !session->is_ready()) {
+    auto session = std::make_unique<vlm_rknn::Session>(*configIt->second);
+    if (session->init() != 0 || !session->isReady()) {
         LOG(ERROR) << "Failed to initialize model '" << id << "'";
         return nullptr;
     }
@@ -95,7 +96,7 @@ void Registry::touch(const std::string& id)
     lru_.push_front(id);
 }
 
-void Registry::evict_lru()
+void Registry::evictLru()
 {
     if (lru_.empty()) {
         return;

@@ -15,8 +15,8 @@
 
 #include <cerrno>
 #include <climits>
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -29,7 +29,7 @@
 
 namespace {
 
-void print_usage(const char* program)
+void printUsage(const char* program)
 {
     std::cout << "Usage: " << program
               << " [-v|--verbose] [--cores <num_cores>]"
@@ -42,7 +42,7 @@ void print_usage(const char* program)
     std::cout << "If --prompt is omitted, an interactive REPL is started.\n";
 }
 
-bool get_option_value(int argc, char** argv, int& index, const char* option, const char*& value)
+bool getOptionValue(int argc, char** argv, int& index, const char* option, const char*& value)
 {
     if (index + 1 >= argc) {
         std::cout << option << " option requires an argument\n";
@@ -52,14 +52,14 @@ bool get_option_value(int argc, char** argv, int& index, const char* option, con
     return true;
 }
 
-bool parse_int_option(const char* option, const char* value, int min_value, int max_value, int& parsed)
+bool parseIntOption(const char* option, const char* value, int minValue, int maxValue, int& parsed)
 {
     errno = 0;
     char* end = nullptr;
     const long result = std::strtol(value, &end, 10);
-    if (value == end || *end != '\0' || errno == ERANGE || result < min_value || result > max_value) {
+    if (value == end || *end != '\0' || errno == ERANGE || result < minValue || result > maxValue) {
         std::cout << "Invalid value for " << option << ": " << value
-                  << " (expected " << min_value << "-" << max_value << ")\n";
+                  << " (expected " << minValue << "-" << maxValue << ")\n";
         return false;
     }
 
@@ -73,13 +73,13 @@ int main(int argc, char** argv)
 {
     Logger::configure(std::cout);
 
-    std::optional<int> num_cores;
-    std::optional<int> max_new_tokens;
-    std::optional<int> max_context_len;
-    std::optional<vlm_rknn::ModelFamily> model_family;
-    std::optional<std::string> vision_encoder_path;
-    std::optional<std::string> language_model_path;
-    std::optional<std::string> image_path;
+    std::optional<int> numCores;
+    std::optional<int> maxNewTokens;
+    std::optional<int> maxContextLen;
+    std::optional<vlm_rknn::ModelFamily> modelFamily;
+    std::optional<std::string> visionEncoderPath;
+    std::optional<std::string> languageModelPath;
+    std::optional<std::string> imagePath;
     std::optional<std::string> prompt;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
@@ -87,87 +87,88 @@ int main(int argc, char** argv)
             continue;
         }
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
-            print_usage(argv[0]);
+            printUsage(argv[0]);
             return 0;
         }
         if (strcmp(argv[i], "--cores") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--cores", value)) {
+            if (!getOptionValue(argc, argv, i, "--cores", value)) {
                 return -1;
             }
             int parsed = 0;
-            if (!parse_int_option("--cores", value, 1, 3, parsed)) {
+            if (!parseIntOption("--cores", value, 1, 3, parsed)) {
                 return -1;
             }
-            num_cores = parsed;
+            numCores = parsed;
             continue;
         }
         if (strcmp(argv[i], "--model-family") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--model-family", value)) {
-                std::cout << "--model-family option requires one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2\n";
+            if (!getOptionValue(argc, argv, i, "--model-family", value)) {
+                std::cout << "--model-family option requires one of: "
+                          << "qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2\n";
                 return -1;
             }
-            vlm_rknn::ModelFamily parsed_family;
-            if (!vlm_rknn::parse_model_family(value, parsed_family)) {
+            vlm_rknn::ModelFamily parsedFamily;
+            if (!vlm_rknn::parseModelFamily(value, parsedFamily)) {
                 std::cout << "Invalid model family specified: " << value << "\n";
                 std::cout << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2\n";
                 return -1;
             }
-            model_family = parsed_family;
+            modelFamily = parsedFamily;
             continue;
         }
         if (strcmp(argv[i], "--max-new-tokens") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--max-new-tokens", value)) {
+            if (!getOptionValue(argc, argv, i, "--max-new-tokens", value)) {
                 return -1;
             }
             int parsed = 0;
-            if (!parse_int_option("--max-new-tokens", value, 1, INT_MAX, parsed)) {
+            if (!parseIntOption("--max-new-tokens", value, 1, INT_MAX, parsed)) {
                 return -1;
             }
-            max_new_tokens = parsed;
+            maxNewTokens = parsed;
             continue;
         }
         if (strcmp(argv[i], "--max-context-len") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--max-context-len", value)) {
+            if (!getOptionValue(argc, argv, i, "--max-context-len", value)) {
                 return -1;
             }
             int parsed = 0;
-            if (!parse_int_option("--max-context-len", value, 1, INT_MAX, parsed)) {
+            if (!parseIntOption("--max-context-len", value, 1, INT_MAX, parsed)) {
                 return -1;
             }
-            max_context_len = parsed;
+            maxContextLen = parsed;
             continue;
         }
         if (strcmp(argv[i], "--vision") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--vision", value)) {
+            if (!getOptionValue(argc, argv, i, "--vision", value)) {
                 return -1;
             }
-            vision_encoder_path = value;
+            visionEncoderPath = value;
             continue;
         }
         if (strcmp(argv[i], "--llm") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--llm", value)) {
+            if (!getOptionValue(argc, argv, i, "--llm", value)) {
                 return -1;
             }
-            language_model_path = value;
+            languageModelPath = value;
             continue;
         }
         if (strcmp(argv[i], "--image") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--image", value)) {
+            if (!getOptionValue(argc, argv, i, "--image", value)) {
                 return -1;
             }
-            image_path = value;
+            imagePath = value;
             continue;
         }
         if (strcmp(argv[i], "--prompt") == 0) {
             const char* value = nullptr;
-            if (!get_option_value(argc, argv, i, "--prompt", value)) {
+            if (!getOptionValue(argc, argv, i, "--prompt", value)) {
                 return -1;
             }
             prompt = value;
@@ -175,58 +176,58 @@ int main(int argc, char** argv)
         }
 
         std::cout << "Unexpected positional argument or unknown option: " << argv[i] << "\n";
-        print_usage(argv[0]);
+        printUsage(argv[0]);
         return -1;
     }
 
-    if (!language_model_path.has_value() || language_model_path->empty()) {
+    if (!languageModelPath.has_value() || languageModelPath->empty()) {
         std::cout << "Missing required --llm <language_model_path> argument\n";
-        print_usage(argv[0]);
+        printUsage(argv[0]);
         return 1;
     }
 
     vlm_rknn::ModelConfig config;
-    config.language_model_path = *language_model_path;
-    if (model_family.has_value()) {
-        config.model_family = model_family.value();
+    config.languageModelPath = *languageModelPath;
+    if (modelFamily.has_value()) {
+        config.modelFamily = modelFamily.value();
     }
-    const bool uses_vision_encoder = vlm_rknn::model_family_uses_vision_encoder(config.model_family);
-    if (uses_vision_encoder) {
-        if (!vision_encoder_path.has_value() || vision_encoder_path->empty()) {
+    const bool usesVisionEncoder = vlm_rknn::modelFamilyUsesVisionEncoder(config.modelFamily);
+    if (usesVisionEncoder) {
+        if (!visionEncoderPath.has_value() || visionEncoderPath->empty()) {
             std::cout << "Missing required --vision <vision_encoder_path> argument for "
-                      << vlm_rknn::model_family_name(config.model_family) << "\n";
-            print_usage(argv[0]);
+                      << vlm_rknn::modelFamilyName(config.modelFamily) << "\n";
+            printUsage(argv[0]);
             return 1;
         }
-        if (!image_path.has_value() || image_path->empty()) {
+        if (!imagePath.has_value() || imagePath->empty()) {
             std::cout << "Missing required --image <image_path> argument for "
-                      << vlm_rknn::model_family_name(config.model_family) << "\n";
-            print_usage(argv[0]);
+                      << vlm_rknn::modelFamilyName(config.modelFamily) << "\n";
+            printUsage(argv[0]);
             return 1;
         }
-        config.vision_encoder_path = *vision_encoder_path;
+        config.visionEncoderPath = *visionEncoderPath;
     } else {
-        if (vision_encoder_path.has_value() && !vision_encoder_path->empty()) {
+        if (visionEncoderPath.has_value() && !visionEncoderPath->empty()) {
             std::cout << "--vision is not supported for "
-                      << vlm_rknn::model_family_name(config.model_family) << "\n";
-            print_usage(argv[0]);
+                      << vlm_rknn::modelFamilyName(config.modelFamily) << "\n";
+            printUsage(argv[0]);
             return 1;
         }
-        if (image_path.has_value() && !image_path->empty()) {
+        if (imagePath.has_value() && !imagePath->empty()) {
             std::cout << "--image is not supported for "
-                      << vlm_rknn::model_family_name(config.model_family) << "\n";
-            print_usage(argv[0]);
+                      << vlm_rknn::modelFamilyName(config.modelFamily) << "\n";
+            printUsage(argv[0]);
             return 1;
         }
     }
-    if (num_cores.has_value()) {
-        config.num_cores = num_cores.value();
+    if (numCores.has_value()) {
+        config.numCores = numCores.value();
     }
-    if (max_new_tokens.has_value()) {
-        config.max_new_tokens = max_new_tokens.value();
+    if (maxNewTokens.has_value()) {
+        config.maxNewTokens = maxNewTokens.value();
     }
-    if (max_context_len.has_value()) {
-        config.max_context_len = max_context_len.value();
+    if (maxContextLen.has_value()) {
+        config.maxContextLen = maxContextLen.value();
     }
 
     vlm_rknn::Session session(config);
@@ -236,7 +237,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    if (!session.is_ready()) {
+    if (!session.isReady()) {
         LOG(ERROR) << "Session is not ready. Something went wrong.";
         return -1;
     }
@@ -244,7 +245,7 @@ int main(int argc, char** argv)
     LOG(INFO) << "Session initialized successfully.";
     LOG(INFO) << session.describe();
 
-    if (!uses_vision_encoder) {
+    if (!usesVisionEncoder) {
         int ret = 0;
         if (prompt.has_value()) {
             LOG(INFO) << "Running decoder with prompt: " << *prompt;
@@ -256,21 +257,21 @@ int main(int argc, char** argv)
         } else {
             LOG(INFO) << "No prompt provided; starting interactive REPL.";
             LOG(INFO) << "Type ':quit' or ':exit' to end the session.";
-            std::string repl_prompt;
+            std::string replPrompt;
             while (true) {
                 std::cout << "> " << std::flush;
-                if (!std::getline(std::cin, repl_prompt)) {
+                if (!std::getline(std::cin, replPrompt)) {
                     LOG(INFO) << "EOF received, exiting REPL.";
                     break;
                 }
-                if (repl_prompt == ":quit" || repl_prompt == ":exit") {
+                if (replPrompt == ":quit" || replPrompt == ":exit") {
                     LOG(INFO) << "Exiting REPL.";
                     break;
                 }
-                if (repl_prompt.empty()) {
+                if (replPrompt.empty()) {
                     continue;
                 }
-                ret = session.decode(repl_prompt, nullptr);
+                ret = session.decode(replPrompt, nullptr);
                 if (ret != 0) {
                     LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
                     return -1;
@@ -280,43 +281,43 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    // Load the image using OpenCV
-    cv::Mat img = cv::imread(*image_path, cv::IMREAD_COLOR);
-    if (img.empty()) {
-        LOG(ERROR) << "Could not open or find the image: " << *image_path;
+    // Load the image using OpenCV.
+    cv::Mat image = cv::imread(*imagePath, cv::IMREAD_COLOR);
+    if (image.empty()) {
+        LOG(ERROR) << "Could not open or find the image: " << *imagePath;
         return -1;
     }
 
-    // Get image dimensions from the model configuration
-    const auto& encoder = session.vision_encoder();
-    auto image_width = encoder.model_width;
-    auto image_height = encoder.model_height;
+    // Get image dimensions from the model configuration.
+    const auto& encoder = session.visionEncoder();
+    auto imageWidth = encoder.modelWidth;
+    auto imageHeight = encoder.modelHeight;
 
-    cv::Mat resized_img;
-    LOG(INFO) << "Preprocessing image to " << image_width << "x" << image_height;
-    int ret = vlm_rknn::preprocess_image_for_vision_encoder(
-        config.model_family,
-        img,
-        cv::Size(image_width, image_height),
-        resized_img);
+    cv::Mat resizedImg;
+    LOG(INFO) << "Preprocessing image to " << imageWidth << "x" << imageHeight;
+    int ret = vlm_rknn::preprocessImageForVisionEncoder(
+        config.modelFamily,
+        image,
+        cv::Size(imageWidth, imageHeight),
+        resizedImg);
     if (ret != 0) {
         LOG(ERROR) << "Failed to preprocess image, error=" << ret;
         return -1;
     }
 
-    // Determine size of the embedding that will be passed to the decoder
-    auto n_image_tokens = encoder.model_image_token;
-    auto image_embed_len = encoder.model_embed_size;
-    auto n_embed_output = encoder.io_num.n_output;
-    auto rkllm_image_embed_len = n_image_tokens * image_embed_len * n_embed_output;
-    LOG(INFO) << "Image embedding size: " << rkllm_image_embed_len;
+    // Determine size of the embedding that will be passed to the decoder.
+    auto imageTokens = encoder.modelImageToken;
+    auto imageEmbedLen = encoder.modelEmbedSize;
+    auto embedOutputCount = encoder.ioNum.n_output;
+    auto rkllmImageEmbedLen = imageTokens * imageEmbedLen * embedOutputCount;
+    LOG(INFO) << "Image embedding size: " << rkllmImageEmbedLen;
 
-    // allocate memory for the image embedding output
-    std::vector<float> img_vec;
-    img_vec.resize(rkllm_image_embed_len);
+    // Allocate memory for the image embedding output.
+    std::vector<float> imgVec;
+    imgVec.resize(rkllmImageEmbedLen);
 
     LOG(INFO) << "Running encoder...";
-    ret = session.encode(resized_img.data, img_vec.data());
+    ret = session.encode(resizedImg.data, imgVec.data());
     if (ret != 0) {
         LOG(ERROR) << "Failed to run model, error=" << ret;
         return -1;
@@ -325,7 +326,7 @@ int main(int argc, char** argv)
     LOG(INFO) << "Encoder ran successfully!";
     if (prompt.has_value()) {
         LOG(INFO) << "Running decoder with prompt: " << *prompt;
-        ret = session.decode(*prompt, img_vec.data());
+        ret = session.decode(*prompt, imgVec.data());
         if (ret != 0) {
             LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
             return -1;
@@ -347,7 +348,7 @@ int main(int argc, char** argv)
             if (prompt.empty()) {
                 continue;
             }
-            ret = session.decode(prompt, img_vec.data());
+            ret = session.decode(prompt, imgVec.data());
             if (ret != 0) {
                 LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
                 return -1;

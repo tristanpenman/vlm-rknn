@@ -20,17 +20,17 @@ struct TextDecoder
 
 struct VisionEncoder
 {
-    rknn_context rknn_ctx = 0;
-    rknn_input_output_num io_num {};
-    rknn_tensor_attr* input_attrs = nullptr;
-    rknn_tensor_attr* output_attrs = nullptr;
+    rknn_context rknnContext = 0;
+    rknn_input_output_num ioNum {};
+    rknn_tensor_attr* inputAttrs = nullptr;
+    rknn_tensor_attr* outputAttrs = nullptr;
 
-    int model_channel = 0;
-    int model_width = 0;
-    int model_height = 0;
+    int modelChannel = 0;
+    int modelWidth = 0;
+    int modelHeight = 0;
 
-    int model_image_token = 0;
-    int model_embed_size = 0;
+    int modelImageToken = 0;
+    int modelEmbedSize = 0;
 };
 
 enum class ModelFamily
@@ -51,34 +51,34 @@ enum class ResizeMode
 
 struct ImagePreprocessProfile
 {
-    ResizeMode resize_mode;
+    ResizeMode resizeMode;
     bool rgb;
-    bool normalize_in_host;
-    float pad_r;
-    float pad_g;
-    float pad_b;
+    bool normalizeInHost;
+    float padR;
+    float padG;
+    float padB;
     std::array<float, 3> mean;
     std::array<float, 3> std;
 };
 
 struct ModelConfig
 {
-    ModelFamily model_family = ModelFamily::kQwenVL2;
+    ModelFamily modelFamily = ModelFamily::kQwenVL2;
 
-    std::optional<std::string> vision_encoder_path;
-    std::string language_model_path;
+    std::optional<std::string> visionEncoderPath;
+    std::string languageModelPath;
 
-    int max_new_tokens = 128;
-    int max_context_len = 2048;
+    int maxNewTokens = 128;
+    int maxContextLen = 2048;
 
-    std::optional<int> num_cores;
+    std::optional<int> numCores;
 };
 
 // A ModelConfig together with the identifier it was defined under (the INI
 // section name). The server uses the identifier to route requests.
 struct NamedModelConfig
 {
-    std::string model_id;
+    std::string modelId;
     ModelConfig config;
 };
 
@@ -92,21 +92,21 @@ struct NamedModelConfig
 // matches the order of the sections, so the first entry is the default model.
 //
 // On failure, returns false and populates `error` with a human-readable message.
-bool parse_model_configs_from_ini(
-    const std::string& ini_text,
+bool parseModelConfigsFromIni(
+    const std::string& iniText,
     std::vector<NamedModelConfig>& out,
     std::string& error);
 
-bool parse_model_family(std::string_view value, ModelFamily& family);
-const char* model_family_name(ModelFamily family);
-const char* model_family_image_placeholder(ModelFamily family);
-const ImagePreprocessProfile& model_family_image_preprocess_profile(ModelFamily family);
-bool model_family_uses_vision_encoder(ModelFamily family);
-bool model_family_supports_multimodal(ModelFamily family);
-int preprocess_image_for_vision_encoder(
+bool parseModelFamily(std::string_view value, ModelFamily& family);
+const char* modelFamilyName(ModelFamily family);
+const char* modelFamilyImagePlaceholder(ModelFamily family);
+const ImagePreprocessProfile& modelFamilyImagePreprocessProfile(ModelFamily family);
+bool modelFamilyUsesVisionEncoder(ModelFamily family);
+bool modelFamilySupportsMultimodal(ModelFamily family);
+int preprocessImageForVisionEncoder(
     ModelFamily family,
-    const cv::Mat& image_bgr,
-    cv::Size target_size,
+    const cv::Mat& imageBgr,
+    cv::Size targetSize,
     cv::Mat& output);
 
 class Session
@@ -115,11 +115,11 @@ public:
     using OutputCallback = std::function<void(const char* text, LLMCallState state)>;
 
 private:
-    int init_vision_encoder();
-    int init_text_decoder();
+    int initVisionEncoder();
+    int initTextDecoder();
 
-    void cleanup_vision_encoder();
-    void cleanup_text_decoder();
+    void cleanupVisionEncoder();
+    void cleanupTextDecoder();
 
 public:
     explicit Session(ModelConfig config);
@@ -128,36 +128,36 @@ public:
 
     int init();
     const ModelConfig& config() const noexcept;
-    bool is_ready() const noexcept;
+    bool isReady() const noexcept;
     std::string describe() const;
-    bool prompt_contains_image(const std::string& prompt) const;
-    void set_output_callback(OutputCallback callback);
+    bool promptContainsImage(const std::string& prompt) const;
+    void setOutputCallback(OutputCallback callback);
 
-    const VisionEncoder& vision_encoder() const
+    const VisionEncoder& visionEncoder() const
     {
         return encoder_;
     }
 
-    const TextDecoder& text_decoder() const
+    const TextDecoder& textDecoder() const
     {
         return decoder_;
     }
 
-    // run the vision encoder and fill the output buffer with the resulting embedding
-    int encode(void* img_data, float* out_result);
+    // Run the vision encoder and fill the output buffer with the resulting embedding.
+    int encode(void* imgData, float* outResult);
 
-    // run the text decoder with the given prompt; results are delivered via the RKLLM callback
-    int decode(const std::string& prompt, float* img_vec);
+    // Run the text decoder; results are delivered via the RKLLM callback.
+    int decode(const std::string& prompt, float* imgVec);
 
 private:
-    static int callback(RKLLMResult *result, void *userdata, LLMCallState state);
+    static int callback(RKLLMResult* result, void* userdata, LLMCallState state);
 
     ModelConfig config_;
     VisionEncoder encoder_;
     TextDecoder decoder_;
 
-    std::string last_decoded_text_;
-    OutputCallback output_callback_;
+    std::string lastDecodedText_;
+    OutputCallback outputCallback_;
 };
 
 }  // namespace vlm_rknn

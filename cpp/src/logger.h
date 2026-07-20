@@ -15,29 +15,29 @@
 #pragma once
 
 #include <atomic>
+#include <mutex>
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <mutex>
 
 /**
- * Simple streaming logger
+ * Simple streaming logger.
  *
  * This logger class is designed for ease-of-use and convenience, while providing performance and thread safety.
  *
  * It is intended to be used like this:
  *
- *   #include "Logger.h"
+ *   #include "logger.h"
  *
  *   #undef LOG
  *   #define LOG Logger("MyCategory")
  *
  *   void myFunction()
  *   {
- *     // enable logging, uses std::cout by default
+ *     // Enable logging, uses std::cout by default.
  *     Logger::configure();
  *
- *     // log info by default
+ *     // Log info by default.
  *     LOG() << "Log some stuff, maybe even some value in hex: 0x" << hex << 23030;
  *     LOG(WARNING) << "This is a warning message";
  *   }
@@ -68,11 +68,11 @@ public:
     class Writer
     {
     public:
-        Writer(Logger &logger, Level level);
+        Writer(Logger& logger, Level level);
         ~Writer();
 
         template<typename T>
-        Writer& operator<<(T const & value)
+        Writer& operator<<(const T& value)
         {
             if (enabled_) {
                 ss_ << value;
@@ -82,7 +82,7 @@ public:
         }
 
     private:
-        Logger &logger_;
+        Logger& logger_;
         std::stringstream ss_;
         bool enabled_{false};
     };
@@ -96,17 +96,17 @@ public:
 
     static void configure();
     static void configure(std::ostream& os);
-    static void configure(Level min_level);
-    static void configure(std::ostream& os, Level min_level);
+    static void configure(Level minLevel);
+    static void configure(std::ostream& os, Level minLevel);
 
     static bool verbose()
     {
-        return min_level_.load() <= Level::kVerbose;
+        return minLevel_.load() <= Level::kVerbose;
     }
 
 private:
     static std::atomic<std::ostream*> os_;
-    static std::atomic<Level> min_level_;
+    static std::atomic<Level> minLevel_;
     static std::mutex mutex_;
 
     std::string name_;

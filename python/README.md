@@ -83,6 +83,8 @@ Relative paths are resolved from the current directory, and missing output direc
 | `--max-context`            | `4096`                                   | Maximum context length                            |
 | `--hybrid-rate`            | `0.25`                                   | Mixed-block quantization ratio                    |
 | `--device`                 | `cpu`                                    | Conversion device: `cpu` or `cuda`                |
+| `--dtype`                  | `bfloat16` (CUDA), `float32` (CPU)       | Source dtype: `float16`, `bfloat16`, or `float32` |
+| `--optimization-level`     | `1`                                      | `0` prioritizes memory, `1` prioritizes accuracy  |
 | `--skip-ollama-validation` | disabled                                 | Skip Ollama GGUF validation                       |
 
 W8A8 variants use RKLLM Toolkit's `normal` algorithm. W4A16 variants use group-wise refined quantization (`grq`), which divides weights into small groups to reduce sensitivity to outliers.
@@ -99,6 +101,12 @@ python -m vlm_rknn.convert_gemma3 \
 ```
 
 Use `--device cuda` only in the GPU container with working CUDA access. Model weights and generated RKLLM files remain subject to their respective model and toolkit license terms.
+
+CUDA conversion defaults to `bfloat16`. RKLLM Toolkit's own default is `float32`, which materializes the 4.30 B-parameter Gemma 3 checkpoint as 16.0 GiB of weights and does not fit on a 16 GiB card. The published checkpoint is already `bfloat16`, as recorded by `torch_dtype` in its `config.json`, so `bfloat16` halves the resident weights to 8.0 GiB without down-converting any stored value. Prefer it over `float16` on Ampere and later, where `bfloat16` is native, because Gemma's weight and activation outliers can exceed `float16` range. Pascal and earlier GPUs have no `bfloat16` support and need `--dtype float16`. Pass `--dtype float32` to restore the toolkit default when sufficient VRAM is available.
+
+`--optimization-level 0` reduces the model-building peak; RKLLM documents level `0` as prioritizing speed and memory and level `1` as prioritizing accuracy. Mixed-quantization sensitivity analysis runs before that stage, so `--hybrid-rate 0` is the lever for its separate peak.
+
+RKLLM Toolkit 1.3.0 declares exact dependencies on PyTorch 2.6.0 and torchvision 0.21.0, whose CUDA 12.6 wheels do not support Blackwell GPUs. The GPU image intentionally overrides those pins with PyTorch 2.7.1 and torchvision 0.22.1 from the CUDA 12.8 index so that RTX 50-series GPUs, including the RTX 5060 Ti, have `sm_120` kernels. This combination is outside Rockchip's declared dependency constraints.
 
 ## Model evaluation
 

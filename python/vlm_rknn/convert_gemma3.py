@@ -278,6 +278,8 @@ def convert_rkllm(
     max_context: int,
     hybrid_rate: float,
     device: str,
+    dtype: str,
+    optimization_level: int,
 ) -> None:
     from rkllm.api import RKLLM
 
@@ -303,7 +305,9 @@ def convert_rkllm(
     print(f"NPU cores:    {npu_cores}")
     print(f"Max context:  {max_context}")
     print(f"Hybrid rate:  {hybrid_rate}")
+    print(f"Optimization: {optimization_level}")
     print(f"Converter:    {device}")
+    print(f"Source dtype: {dtype}")
     print(f"Scratch:      {rkllm_cache_dir}")
     print()
 
@@ -312,6 +316,7 @@ def convert_rkllm(
     ret = llm.load_huggingface(
         model=str(model_path),
         device=device,
+        dtype=dtype,
     )
 
     if ret != 0:
@@ -321,7 +326,7 @@ def convert_rkllm(
 
     ret = llm.build(
         do_quantization=True,
-        optimization_level=1,
+        optimization_level=optimization_level,
         quantized_dtype=quantization,
         quantized_algorithm=algorithm,
         target_platform=target,
@@ -408,10 +413,31 @@ def main() -> None:
     )
 
     parser.add_argument(
+        "--optimization-level",
+        type=int,
+        default=1,
+        choices=[0, 1],
+        help=(
+            "RKLLM build optimization level: 0 prioritizes speed and memory, "
+            "1 prioritizes accuracy (default: 1)"
+        ),
+    )
+
+    parser.add_argument(
         "--device",
         default="cpu",
         choices=["cpu", "cuda"],
         help="Device used by rkllm-toolkit during conversion",
+    )
+
+    parser.add_argument(
+        "--dtype",
+        default=None,
+        choices=["float16", "bfloat16", "float32"],
+        help=(
+            "Source dtype used during conversion (default: bfloat16 on CUDA, "
+            "float32 on CPU)"
+        ),
     )
 
     parser.add_argument(
@@ -420,6 +446,10 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    dtype = args.dtype
+    if dtype is None:
+        dtype = "bfloat16" if args.device == "cuda" else "float32"
 
     if not args.skip_ollama_validation:
         print(f"Inspecting Ollama model {args.ollama_model!r}...")
@@ -443,6 +473,8 @@ def main() -> None:
         max_context=args.max_context,
         hybrid_rate=args.hybrid_rate,
         device=args.device,
+        dtype=dtype,
+        optimization_level=args.optimization_level,
     )
 
 

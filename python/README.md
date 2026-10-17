@@ -49,12 +49,13 @@ The containers bind-mount the repository at `/workspace`. Ollama models, Hugging
 
 ## RKLLM Toolkit versions
 
-Two RKLLM Toolkit wheels are included in [`python/wheels`](./wheels):
+Three RKLLM Toolkit wheels are included in [`python/wheels`](./wheels):
 
+- `rkllm_toolkit-1.3.1-cp311-cp311-linux_x86_64.whl`
 - `rkllm_toolkit-1.3.0-cp311-cp311-linux_x86_64.whl`
 - `rkllm_toolkit-1.2.3-cp311-cp311-linux_x86_64.whl`
 
-The Python images install version 1.3.0 by default. To use version 1.2.3 instead, edit [`requirements.txt`](./requirements.txt) so its RKLLM Toolkit entry points to `/opt/wheels/rkllm_toolkit-1.2.3-cp311-cp311-linux_x86_64.whl`, then rebuild the selected Python image.
+The Python images install version 1.3.1 by default. To use an older version, edit [`requirements.txt`](./requirements.txt) so its RKLLM Toolkit entry points to the desired wheel under `/opt/wheels`, then rebuild the selected Python image. The requirements also pin `transformers==5.8.0` and `onnx==1.22.0` for Gemma 4 conversion.
 
 ## Usage
 

@@ -30,9 +30,9 @@ load_model_config() {
   case "$1" in
     qwen2-vl-2b)
       MODEL_FAMILY="qwen2-vl"
-      HF_REPO="3ib0n/Qwen2-VL-2B-rkllm"
+      HF_REPO="ThomasTheMaker/Qwen2-VL-2B-rkllm"
       LLM_FILE="Qwen2-VL-2B-Instruct.rkllm"
-      VISION_FILE="qwen2_vl_2b_vision_rk3588.rknn"
+      VISION_FILE="Qwen2-VL-2B-Instruct.rknn"
       CACHE_NAME="qwen2-vl-2b"
       DOWNLOAD_SOURCE="huggingface"
       ;;

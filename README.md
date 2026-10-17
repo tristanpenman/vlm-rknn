@@ -392,9 +392,9 @@ Qwen2-VL is distributed in several sizes, ranging from 2B (2 billion parameters)
 
 You can download compatible Qwen2-VL models from Hugging Face:
 
-👉 [Qwen2-VL-2B-rkllm](https://huggingface.co/3ib0n/Qwen2-VL-2B-rkllm)
+👉 [Qwen2-VL-2B-rkllm](https://huggingface.co/ThomasTheMaker/Qwen2-VL-2B-rkllm)
 
-Fetch the `Qwen2-VL-2B-Instruct.rkllm` and `qwen2_vl_2b_vision_rk3588.rknn` model files.
+Fetch the `Qwen2-VL-2B-Instruct.rkllm` and `Qwen2-VL-2B-Instruct.rknn` model files.
 
 ### Qwen2-VL-7B
 

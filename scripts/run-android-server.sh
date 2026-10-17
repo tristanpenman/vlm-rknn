@@ -6,7 +6,7 @@ set -euo pipefail
 # SmolVLM2-256M (a second, non-default model loaded on demand).
 #
 # The Qwen2-VL model files come from:
-#   https://huggingface.co/3ib0n/Qwen2-VL-2B-rkllm
+#   https://huggingface.co/ThomasTheMaker/Qwen2-VL-2B-rkllm
 #
 # The SmolVLM2-256M model files come from the Qengineering project:
 #   https://github.com/Qengineering/SmolVLM2-256M-NPU
@@ -80,9 +80,9 @@ echo "=== Model selection ==="
 # Default model: Qwen2-VL (loaded eagerly at startup).
 case "${MODEL_SIZE}" in
   2b)
-    QWEN_HF_REPO="3ib0n/Qwen2-VL-2B-rkllm"
+    QWEN_HF_REPO="ThomasTheMaker/Qwen2-VL-2B-rkllm"
     QWEN_LLM_FILE="Qwen2-VL-2B-Instruct.rkllm"
-    QWEN_VISION_FILE="qwen2_vl_2b_vision_rk3588.rknn"
+    QWEN_VISION_FILE="Qwen2-VL-2B-Instruct.rknn"
     ;;
   7b)
     QWEN_HF_REPO="3ib0n/Qwen2-VL-7B-rkllm"

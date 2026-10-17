@@ -1,0 +1,57 @@
+name: Build Android App
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - android/**
+      - cpp/**
+      - cmake/**
+      - thirdparty/**
+      - .github/workflows/android-app.yml
+  pull_request:
+    paths:
+      - android/**
+      - cpp/**
+      - cmake/**
+      - thirdparty/**
+      - .github/workflows/android-app.yml
+
+jobs:
+  build-app:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install CMake
+        run: |
+          sdkmanager --install "cmake;3.31.6"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug APK
+        run: |
+          ./gradlew :app:assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vlm-rknn-app-debug
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

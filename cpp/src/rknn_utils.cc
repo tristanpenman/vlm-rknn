@@ -159,19 +159,19 @@ void logRkllmVersion()
         return;
     }
 
-    const auto version = readEmbeddedVersionString(
-        *libraryPath,
-        "rknn llm lib version: ");
-    if (version.has_value()) {
-        LOG(INFO) << "RKLLM version: " << *version;
-        return;
-    }
-
     const auto sdkVersion = readEmbeddedVersionString(
         *libraryPath,
         "RKLLM SDK (version: ");
     if (sdkVersion.has_value()) {
         LOG(INFO) << "RKLLM version: " << *sdkVersion;
+        return;
+    }
+
+    const auto legacyVersion = readEmbeddedVersionString(
+        *libraryPath,
+        "rknn llm lib version: ");
+    if (legacyVersion.has_value()) {
+        LOG(INFO) << "RKLLM version: " << *legacyVersion;
         return;
     }
 

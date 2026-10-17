@@ -90,9 +90,9 @@ OpenCV is being integrated as a fetched third-party dependency for image loading
 
 ### RKNN / RKLLM
 
-The version of RKLLM vendored in this project is 1.2.3 (build: 77daf2e2 2025-11-22).
+The version of RKLLM vendored in this project is 1.3.1.
 
-The version of RKNN is 2.3.3b0.
+The version of RKNPU2 vendored in this project is 2.3.2.
 
 ## Linux CLI
 

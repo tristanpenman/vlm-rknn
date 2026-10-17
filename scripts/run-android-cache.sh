@@ -185,9 +185,9 @@ echo "=== Push files to device ==="
 
 "${ADB[@]}" shell mkdir -p "${REMOTE_MODEL_DIR}" "${REMOTE_LIB_DIR}" "$(dirname "${CACHE_PATH}")"
 "${ADB[@]}" push "${CACHE_BIN}" "${REMOTE_DIR}/vlm-rknn-cache"
-"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rknpu2/lib-android/arm64-v8a/librknnrt.so" "${REMOTE_LIB_DIR}/"
-"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/lib-android/arm64-v8a/librkllmrt.so" "${REMOTE_LIB_DIR}/"
-"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/lib-android/arm64-v8a/libomp.so" "${REMOTE_LIB_DIR}/"
+"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rknpu2/Android/arm64-v8a/librknnrt.so" "${REMOTE_LIB_DIR}/"
+"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/Android/arm64-v8a/librkllmrt.so" "${REMOTE_LIB_DIR}/"
+"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/Android/arm64-v8a/libomp.so" "${REMOTE_LIB_DIR}/"
 sync_model "${MODEL_CACHE}/${LLM_FILE}" "${REMOTE_MODEL_DIR}/${LLM_FILE}"
 "${ADB[@]}" shell chmod 755 "${REMOTE_DIR}/vlm-rknn-cache"
 

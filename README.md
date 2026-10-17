@@ -343,7 +343,7 @@ cd android
 
 The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-The app packages the vendored Android RKNN/RKLLM runtime libraries from `thirdparty/rknpu2/lib-android` and `thirdparty/rkllm/lib-android`. To override those paths, set `rknnLibRoot` and `rkllmLibRoot` in `android/local.properties`, or use `RKNN_LIB_ROOT` and `RKLLM_LIB_ROOT` environment variables.
+The app packages the vendored Android RKNN/RKLLM runtime libraries from `thirdparty/rknpu2/Android` and `thirdparty/rkllm/Android`. To override those paths, set `rknnLibRoot` and `rkllmLibRoot` in `android/local.properties`, or use `RKNN_LIB_ROOT` and `RKLLM_LIB_ROOT` environment variables.
 
 ### APK Installation
 

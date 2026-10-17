@@ -36,15 +36,15 @@ set(VLM_RKNN_TARGET "rk3588" CACHE STRING "Rockchip target device family")
 if(ANDROID)
     set(VLM_RKNN_ARCH ${CMAKE_ANDROID_ARCH_ABI})
     set(DEFAULT_RKNN_RUNTIME_LIB
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/lib-android/${VLM_RKNN_ARCH}/librknnrt.so)
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/Android/${VLM_RKNN_ARCH}/librknnrt.so)
     set(DEFAULT_RKLLM_RUNTIME_LIB
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/lib-android/${VLM_RKNN_ARCH}/librkllmrt.so)
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/Android/${VLM_RKNN_ARCH}/librkllmrt.so)
 else()
     set(VLM_RKNN_ARCH aarch64)
     set(DEFAULT_RKNN_RUNTIME_LIB
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/lib/${VLM_RKNN_ARCH}/librknnrt.so)
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rknpu2/Linux/${VLM_RKNN_ARCH}/librknnrt.so)
     set(DEFAULT_RKLLM_RUNTIME_LIB
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/lib/${VLM_RKNN_ARCH}/librkllmrt.so)
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/rkllm/Linux/${VLM_RKNN_ARCH}/librkllmrt.so)
 endif()
 
 # -----------------------------------------------------------------------------

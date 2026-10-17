@@ -680,12 +680,11 @@ int Session::initTextDecoder()
     params.max_context_len = config_.maxContextLen;
     params.skip_special_token = true;
     params.extend_param.base_domain_id = profile.baseDomainId;
-    params.img_start = profile.imgStart;
-    params.img_end = profile.imgEnd;
-    params.img_content = profile.imgContent;
 
     // Initialize RKLLM session.
-    int ret = rkllm_init(&decoder_.handle, &params, &callback);
+    RKLLMCallback rkllmCallback = {};
+    rkllmCallback.result_callback = &callback;
+    int ret = rkllm_init(&decoder_.handle, &params, &rkllmCallback);
     if (ret != 0) {
         LOG(ERROR) << "Failed to initialize RKLLM, error=" << ret;
         return -1;
@@ -990,11 +989,14 @@ int Session::decode(const std::string& prompt, float* imgVec)
         rkllmInput.input_type = RKLLM_INPUT_MULTIMODAL;
         rkllmInput.role = "user";
         rkllmInput.multimodal_input.prompt = const_cast<char*>(prompt.c_str());
-        rkllmInput.multimodal_input.image_embed = imgVec;
-        rkllmInput.multimodal_input.n_image_tokens = imageTokens;
-        rkllmInput.multimodal_input.n_image = 1;
-        rkllmInput.multimodal_input.image_height = imageHeight;
-        rkllmInput.multimodal_input.image_width = imageWidth;
+        rkllmInput.multimodal_input.image.image_embed = imgVec;
+        rkllmInput.multimodal_input.image.n_image_tokens = imageTokens;
+        rkllmInput.multimodal_input.image.n_image = 1;
+        rkllmInput.multimodal_input.image.image_start = profile.imgStart;
+        rkllmInput.multimodal_input.image.image_end = profile.imgEnd;
+        rkllmInput.multimodal_input.image.image_content = profile.imgContent;
+        rkllmInput.multimodal_input.image.image_height = imageHeight;
+        rkllmInput.multimodal_input.image.image_width = imageWidth;
     }
 
     if (config_.tokenizerModelPath.has_value()) {

@@ -13,7 +13,7 @@ if(NOT DEFINED RKLLM_INCLUDE_DIR)
 endif()
 
 if(NOT DEFINED RKLLM_RUNTIME_LIB)
-  set(RKLLM_RUNTIME_LIB "${REPO_ROOT}/thirdparty/rkllm/lib-android/${ANDROID_ABI}/librkllmrt.so")
+  set(RKLLM_RUNTIME_LIB "${REPO_ROOT}/thirdparty/rkllm/Android/${ANDROID_ABI}/librkllmrt.so")
 endif()
 
 if(NOT EXISTS "${RKLLM_RUNTIME_LIB}")
@@ -27,7 +27,7 @@ if(NOT DEFINED RKNN_INCLUDE_DIR)
 endif()
 
 if(NOT DEFINED RKNN_RUNTIME_LIB)
-  set(RKNN_RUNTIME_LIB "${REPO_ROOT}/thirdparty/rknpu2/lib-android/${ANDROID_ABI}/librknnrt.so")
+  set(RKNN_RUNTIME_LIB "${REPO_ROOT}/thirdparty/rknpu2/Android/${ANDROID_ABI}/librknnrt.so")
 endif()
 
 if(NOT EXISTS "${RKNN_RUNTIME_LIB}")

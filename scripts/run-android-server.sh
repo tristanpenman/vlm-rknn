@@ -237,9 +237,9 @@ echo "=== Push files to device ==="
 "${ADB[@]}" push "${SERVER_BIN}" "${REMOTE_DIR}/vlm-rknn-server"
 "${ADB[@]}" push "${INI_FILE}" "${REMOTE_DIR}/server.ini"
 
-"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rknpu2/lib-android/arm64-v8a/librknnrt.so" "${REMOTE_LIB_DIR}/"
-"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/lib-android/arm64-v8a/librkllmrt.so" "${REMOTE_LIB_DIR}/"
-"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/lib-android/arm64-v8a/libomp.so" "${REMOTE_LIB_DIR}/"
+"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rknpu2/Android/arm64-v8a/librknnrt.so" "${REMOTE_LIB_DIR}/"
+"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/Android/arm64-v8a/librkllmrt.so" "${REMOTE_LIB_DIR}/"
+"${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/Android/arm64-v8a/libomp.so" "${REMOTE_LIB_DIR}/"
 
 # Model files are large; only push when missing or changed on the device.
 sync_model "${QWEN_CACHE}/${QWEN_LLM_FILE}" "${REMOTE_QWEN_DIR}/${QWEN_LLM_FILE}"

@@ -1,4 +1,4 @@
-# KV-Cache
+# KV-Caching
 
 _Reusing a prompt prefix with RKLLM KV cache_
 

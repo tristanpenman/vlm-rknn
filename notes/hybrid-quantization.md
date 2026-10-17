@@ -1,4 +1,4 @@
-# RKLLM Hybrid Quantization and Conversion Memory
+# Hybrid Quantization
 
 The RKLLM Toolkit's `hybrid_rate` setting controls the proportion of eligible model blocks that use an alternative group-wise quantization format instead of the primary quantization format. For example, a W8A8 conversion with `hybrid_rate=0.25` can combine ordinary W8A8 blocks with group-wise `W8A8_G512` blocks. The setting is intended to balance model accuracy, performance, and size by applying the alternative representation to blocks selected through quantization-sensitivity analysis. It is not a GPU/CPU offload ratio and does not move that proportion of the model into system RAM.
 

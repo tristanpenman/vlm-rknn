@@ -448,7 +448,9 @@ Downloads and deploys the Qwen2-VL and SmolVLM2 model artifacts together with th
 
 ### Python Scripts
 
-In addition to the bash scripts above, there are also Python scripts. Dependencies can be installed using [requirements.txt](./python/requirements.txt).
+In addition to the bash scripts above, there are also Python scripts. To run locally, dependencies should first be installed using pip (see [requirements.txt](./python/requirements.txt)). Alternatively, run a Python shell using `./scripts/python-shell.sh` or `./scripts/python-shell-gpu.sh`.
+
+See the [Python README](./python/README.md) for instructions on using the scripts below.
 
 #### `vlm_rknn.convert_gemma3`
 
@@ -456,7 +458,7 @@ Converts the original Gemma3 model corresponding to Ollama's `gemma3:4b-it-q8_0`
 
 #### `vlm_rknn.evaluate_model`
 
-Runs a prompt and expected-answer test suite against an arbitrary model command. It supports exact-match, token F1, ROUGE-L, and JSON scoring, and writes JSON and Markdown reports. See the [Python README](./python/README.md#model-evaluation) for the manifest format and usage.
+Runs a prompt and expected-answer test suite against an arbitrary model command. It supports exact-match, token F1, ROUGE-L, and JSON scoring, and writes JSON and Markdown reports.
 
 #### `vlm_rknn.send_query`
 

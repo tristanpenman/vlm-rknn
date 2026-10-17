@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22.1)
+cmake_minimum_required(VERSION 3.28)
 project(vlm-rknn-android)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -38,10 +38,25 @@ endif()
 
 include("${REPO_ROOT}/cmake/OpenCV.cmake")
 
+set(SPM_ENABLE_SHARED OFF CACHE BOOL INTERNAL)
+set(SPM_ENABLE_TCMALLOC OFF CACHE BOOL INTERNAL)
+FetchContent_Declare(
+    sentencepiece
+    GIT_REPOSITORY https://github.com/google/sentencepiece
+    GIT_TAG 11051e3b73b3a6222a52acd720e39805dc7545ab
+    EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(sentencepiece)
+
+target_compile_options(sentencepiece-static PRIVATE
+    $<$<CXX_COMPILER_ID:GNU>:-Wno-stringop-overflow>
+)
+
 include_directories(
     "${REPO_ROOT}/cpp/src"
     "${RKLLM_INCLUDE_DIR}"
     "${RKNN_INCLUDE_DIR}"
+    "${sentencepiece_SOURCE_DIR}/src"
     ${VLM_RKNN_OPENCV_INCLUDE_DIRS})
 
 add_library(vlm-rknn-jni SHARED
@@ -57,5 +72,6 @@ target_compile_definitions(vlm-rknn-jni PRIVATE
 target_link_libraries(vlm-rknn-jni
     "${RKLLM_RUNTIME_LIB}"
     "${RKNN_RUNTIME_LIB}"
+    sentencepiece
     ${VLM_RKNN_OPENCV_TARGETS}
     log)

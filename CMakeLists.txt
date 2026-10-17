@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.28)
 project(vlm-rknn VERSION 0.1.0 LANGUAGES C CXX)
 
 set(COPYRIGHT "Copyright (c) 2026 Tristan Penman")

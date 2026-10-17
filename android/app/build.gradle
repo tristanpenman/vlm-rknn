@@ -48,6 +48,7 @@ android {
 
     externalNativeBuild {
       cmake {
+        targets "vlm-rknn-jni"
         arguments "-DRKLLM_RUNTIME_LIB=${rkllmLibRoot}/arm64-v8a/librkllmrt.so",
                   "-DRKNN_RUNTIME_LIB=${rknnLibRoot}/arm64-v8a/librknnrt.so",
                   "-DANDROID_STL=c++_shared"
@@ -59,7 +60,7 @@ android {
   externalNativeBuild {
     cmake {
       path "src/main/cpp/CMakeLists.txt"
-      version = "3.22.1"
+      version = "3.31.6"
     }
   }
 

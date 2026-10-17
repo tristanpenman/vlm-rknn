@@ -33,7 +33,7 @@ void printUsage(const char* program)
 {
     std::cout << "Usage: " << program
               << " [-v|--verbose] [--cores <num_cores>]"
-              << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl|llama|smolvlm2|gemma3>]"
+              << " [--model-family <qwen2-vl|qwen2.5-vl|qwen3-vl|llama|smolvlm2|gemma3|gemma4>]"
               << " [--max-new-tokens <tokens>] [--max-context-len <tokens>]"
               << " [--tokenizer-model <tokenizer.model>]"
               << " --llm <language_model_path>"
@@ -111,13 +111,13 @@ int main(int argc, char** argv)
             const char* value = nullptr;
             if (!getOptionValue(argc, argv, i, "--model-family", value)) {
                 std::cout << "--model-family option requires one of: "
-                          << "qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2, gemma3\n";
+                          << "qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2, gemma3, gemma4\n";
                 return -1;
             }
             vlm_rknn::ModelFamily parsedFamily;
             if (!vlm_rknn::parseModelFamily(value, parsedFamily)) {
                 std::cout << "Invalid model family specified: " << value << "\n";
-                std::cout << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2, gemma3\n";
+                std::cout << "Expected one of: qwen2-vl, qwen2.5-vl, qwen3-vl, llama, smolvlm2, gemma3, gemma4\n";
                 return -1;
             }
             modelFamily = parsedFamily;

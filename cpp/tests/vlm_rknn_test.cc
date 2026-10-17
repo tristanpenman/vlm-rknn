@@ -66,6 +66,12 @@ int main()
     expect(vlm_rknn::parseModelFamily("gemma_3", family), "gemma_3 alias should parse");
     expect(std::string(vlm_rknn::modelFamilyName(family)) == "gemma3",
            "Gemma 3 should have a canonical family name");
+    expect(vlm_rknn::parseModelFamily("gemma4", family), "gemma4 should parse");
+    expect(family == vlm_rknn::ModelFamily::kGemma4, "gemma4 should map to Gemma 4 family");
+    expect(vlm_rknn::parseModelFamily("gemma-4", family), "gemma-4 alias should parse");
+    expect(vlm_rknn::parseModelFamily("gemma_4", family), "gemma_4 alias should parse");
+    expect(std::string(vlm_rknn::modelFamilyName(family)) == "gemma4",
+           "Gemma 4 should have a canonical family name");
     expect(!vlm_rknn::parseModelFamily("not-a-family", family), "unknown family should not parse");
 
     expect(!vlm_rknn::modelFamilyUsesVisionEncoder(vlm_rknn::ModelFamily::kLlama),
@@ -84,6 +90,12 @@ int main()
            "Gemma 3 should be registered as multimodal");
     expect(std::string(vlm_rknn::modelFamilyImagePlaceholder(vlm_rknn::ModelFamily::kGemma3)) == "<image>",
            "Gemma 3 should expose the repository image placeholder");
+    expect(vlm_rknn::modelFamilyUsesVisionEncoder(vlm_rknn::ModelFamily::kGemma4),
+           "Gemma 4 should require a vision encoder");
+    expect(vlm_rknn::modelFamilySupportsMultimodal(vlm_rknn::ModelFamily::kGemma4),
+           "Gemma 4 should be registered as multimodal");
+    expect(std::string(vlm_rknn::modelFamilyImagePlaceholder(vlm_rknn::ModelFamily::kGemma4)) == "<image>",
+           "Gemma 4 should expose the repository image placeholder");
     expect(std::string(vlm_rknn::modelFamilyImagePlaceholder(vlm_rknn::ModelFamily::kQwenVL2)) == "<image>",
            "Qwen2-VL image placeholder should be exposed");
     expect(std::string(vlm_rknn::modelFamilyImagePlaceholder(vlm_rknn::ModelFamily::kLlama)).empty(),
@@ -111,6 +123,13 @@ int main()
     expect(gemmaPreprocess.rgb, "Gemma 3 should request RGB encoder input");
     expect(!gemmaPreprocess.normalizeInHost,
            "Gemma 3 normalization should be included in the RKNN artifact");
+
+    const auto& gemma4Preprocess =
+        vlm_rknn::modelFamilyImagePreprocessProfile(vlm_rknn::ModelFamily::kGemma4);
+    expect(gemma4Preprocess.resizeMode == vlm_rknn::ResizeMode::kPadToSquare,
+           "Gemma 4 should pad images to square");
+    expect(gemma4Preprocess.rgb && !gemma4Preprocess.normalizeInHost,
+           "Gemma 4 should send unnormalized RGB input to the encoder");
 
     cv::Mat bgrPixel(1, 1, CV_8UC3, cv::Scalar(10, 20, 30));
     cv::Mat preprocessedPixel;

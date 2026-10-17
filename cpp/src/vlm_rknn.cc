@@ -171,6 +171,21 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         kGemma3ImagePreprocess,
     };
 
+    // Gemma 4 uses the RKLLM model's chat template. The domain ID and image
+    // markers follow Rockchip's demo and still need checking on an RK3588.
+    static constexpr ModelProfile kGemma4 {
+        true,
+        true,
+        1,
+        false,
+        "<image>",
+        "<|image>",
+        "<image|>",
+        "<|image|>",
+        0,
+        kQwenVlImagePreprocess,
+    };
+
     switch (family) {
     case ModelFamily::kQwenVL2:
         return kQwen2Vl;
@@ -184,6 +199,8 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         return kSmolvlm2;
     case ModelFamily::kGemma3:
         return kGemma3;
+    case ModelFamily::kGemma4:
+        return kGemma4;
     }
 
     return kQwen2Vl;
@@ -266,6 +283,11 @@ bool parseModelFamily(std::string_view value, ModelFamily& family)
 
     if (value == "gemma3" || value == "gemma-3" || value == "gemma_3") {
         family = ModelFamily::kGemma3;
+        return true;
+    }
+
+    if (value == "gemma4" || value == "gemma-4" || value == "gemma_4") {
+        family = ModelFamily::kGemma4;
         return true;
     }
 
@@ -406,6 +428,8 @@ const char* modelFamilyName(ModelFamily family)
         return "smolvlm2";
     case ModelFamily::kGemma3:
         return "gemma3";
+    case ModelFamily::kGemma4:
+        return "gemma4";
     }
 
     return "qwen2-vl";

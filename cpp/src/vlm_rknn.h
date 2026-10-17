@@ -42,6 +42,7 @@ enum class ModelFamily
     kLlama,
     kSmolVLM2,
     kGemma3,
+    kGemma4,
 };
 
 enum class ResizeMode

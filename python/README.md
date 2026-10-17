@@ -1,34 +1,12 @@
-# Python
+# Python scripts
 
 The `vlm_rknn` Python package contains utilities for preparing models for use with the C++ RKNN/RKLLM runtime. It includes converters for Gemma 3 and Gemma 4 language models.
-
-## Gemma 4 language model
-
-Run this in the Python container to download `google/gemma-4-E2B-it` and export an FP16 RKLLM model for RK3588:
-
-```bash
-python -m vlm_rknn.convert_gemma4
-```
-
-The default output is `gemma-4-E2B-it-fp16-rk3588.rkllm`. Use `--target rk3576` for RK3576; the default NPU core count adjusts to the target. `--hf-dir`, `--output`, `--npu-cores`, `--max-context`, `--optimization-level`, and `--device` are also available. This converter covers the language model only. Image input requires a separate RKNN vision encoder, as described in [`notes/gemma4.md`](../notes/gemma4.md).
-
-## How it works
-
-Ollama stores `gemma3:4b-it-q8_0` as a Q8_0 GGUF model, but RKLLM Toolkit does not accept GGUF input. Its W8A8 and W4A16 formats also use different quantization schemes from GGUF Q8_0.
-
-The converter therefore does not dequantize and requantize Ollama's lossy weights. Instead, it:
-
-1. Asks Ollama which GGUF blob backs `gemma3:4b-it-q8_0`.
-2. Validates that the blob contains Q8_0 tensors.
-3. Downloads the matching original `google/gemma-3-4b-it` weights from Hugging Face.
-4. Loads the original weights with RKLLM Toolkit.
-5. Quantizes and exports them for the selected Rockchip target.
-
-This avoids an unnecessary Q8_0 to FP16 to W8A8 conversion.
 
 ## Prerequisites
 
 Gemma 3 model has restricted access on Hugging Face. Request access to [`google/gemma-3-4b-it`](https://huggingface.co/google/gemma-3-4b-it) and accept Google's usage license.
+
+### Python Shell
 
 From the repository root, build the CPU conversion environment, start its Ollama server, and open a shell with:
 
@@ -57,7 +35,7 @@ hf auth login
 
 The containers bind-mount the repository at `/workspace`. Ollama models, Hugging Face downloads, and RKLLM scratch files are stored beneath `/workspace/.cache`, which corresponds to the repository's `.cache` directory.
 
-## RKLLM Toolkit versions
+### RKLLM Toolkit
 
 Three RKLLM Toolkit wheels are included in [`python/wheels`](./wheels):
 
@@ -67,7 +45,21 @@ Three RKLLM Toolkit wheels are included in [`python/wheels`](./wheels):
 
 The Python images install version 1.3.1 by default. To use an older version, edit [`requirements.txt`](./requirements.txt) so its RKLLM Toolkit entry points to the desired wheel under `/opt/wheels`, then rebuild the selected Python image. The requirements also pin `transformers==5.8.0` and `onnx==1.22.0` for Gemma 4 conversion.
 
-## Usage
+## Gemma 3
+
+Ollama stores `gemma3:4b-it-q8_0` as a Q8_0 GGUF model, but RKLLM Toolkit does not accept GGUF input. Its W8A8 and W4A16 formats also use different quantization schemes from GGUF Q8_0.
+
+The converter therefore does not dequantize and requantize Ollama's lossy weights. Instead, it:
+
+1. Asks Ollama which GGUF blob backs `gemma3:4b-it-q8_0`.
+2. Validates that the blob contains Q8_0 tensors.
+3. Downloads the matching original `google/gemma-3-4b-it` weights from Hugging Face.
+4. Loads the original weights with RKLLM Toolkit.
+5. Quantizes and exports them for the selected Rockchip target.
+
+This avoids an unnecessary Q8_0 to FP16 to W8A8 conversion.
+
+### Usage
 
 Run the converter from either Python container:
 
@@ -81,7 +73,7 @@ The converter prompts to pull the Ollama model if it is not already installed. U
 
 Relative paths are resolved from the current directory, and missing output directories are created automatically.
 
-## Options
+### Options
 
 | Option                     | Default                                  | Description                                       |
 |----------------------------|------------------------------------------|---------------------------------------------------|
@@ -118,6 +110,20 @@ CUDA conversion defaults to `bfloat16`. RKLLM Toolkit's own default is `float32`
 `--optimization-level 0` reduces the model-building peak; RKLLM documents level `0` as prioritizing speed and memory and level `1` as prioritizing accuracy. Mixed-quantization sensitivity analysis runs before that stage, so `--hybrid-rate 0` is the lever for its separate peak.
 
 RKLLM Toolkit 1.3.0 declares exact dependencies on PyTorch 2.6.0 and torchvision 0.21.0, whose CUDA 12.6 wheels do not support Blackwell GPUs. The GPU image intentionally overrides those pins with PyTorch 2.7.1 and torchvision 0.22.1 from the CUDA 12.8 index so that RTX 50-series GPUs, including the RTX 5060 Ti, have `sm_120` kernels. This combination is outside Rockchip's declared dependency constraints.
+
+## Gemma 4
+
+### Usage
+
+Run this in the Python container to download `google/gemma-4-E2B-it` and export an FP16 RKLLM model for RK3588:
+
+```bash
+python -m vlm_rknn.convert_gemma4
+```
+
+### Options
+
+The default output is `gemma-4-E2B-it-fp16-rk3588.rkllm`. Use `--target rk3576` for RK3576; the default NPU core count adjusts to the target. `--hf-dir`, `--output`, `--npu-cores`, `--max-context`, `--optimization-level`, and `--device` are also available. This converter covers the language model only. Image input requires a separate RKNN vision encoder, as described in [`notes/gemma4.md`](../notes/gemma4.md).
 
 ## Model evaluation
 

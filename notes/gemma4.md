@@ -74,7 +74,7 @@ These changes are confined to the model-family plumbing.
 
 - **Android app:** add a "Gemma 4" entry and model paths to `android/app/src/main/res/values/strings.xml`. The JNI layer passes the family name through, so it should need no changes.
 - **Server and INI:** `model_family = gemma4` should just work. Add an example to `data/server.example.ini`.
-- **Docs:** add a README Models section and an entry in `PLAN.md`. The Gemma 3 README section also links to `notes/gemma3.md`, which does not exist yet.
+- **Docs:** add a README Models section. The Gemma 3 README section also links to `notes/gemma3.md`, which does not exist yet.
 
 ### Phase 5: Audio (Optional)
 

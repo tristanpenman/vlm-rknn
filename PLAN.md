@@ -1,76 +1,41 @@
 # Plan
 
-- Build and tooling
-  + ~~Project scaffolding and CMake layout~~
-  + ~~Wire up RKNN and RKLLM libraries from `thirdparty/`~~
-  + ~~Add OpenCV via FetchContent (trimmed module set)~~
-  + ~~Docker images and helper scripts for native and Android builds~~
-  + ~~GitHub Actions for ShellCheck~~
-  + ~~Strip symbols from release builds~~
-  + ~~Add a CI job that runs the native build end-to-end~~
+- Gemma 4 support (see [`notes/gemma4.md`](./notes/gemma4.md))
+  + Model conversion
+    + Add the `rkllm_toolkit` 1.3.1 wheel and pin `transformers` / `onnx` to the versions Rockchip's demo requires
+    + Add `convert_gemma4.py` for `google/gemma-4-E2B-it`, sharing download and build logic with `convert_gemma3.py`
+    + Export the vision encoder to RKNN at a fixed resolution, folding `pixel_position_ids` into the graph
+    + Document the conversion recipe
+  + C++ text and image support
+    + Add the `kGemma4` model family, parse aliases, and CLI help text
+    + Make the Gemma 3 vision input checks profile-driven
+    + Validate tensor layout assumptions for RKNN model metadata (`NCHW` vs `NHWC`, output shape ordering)
+    + Add parse and family assertions to the host tests
+  + Device validation
+    + Compare RKNN vision output against the PyTorch reference
+    + Confirm preprocessing matches the Hugging Face reference (resize mode, pad colour, normalisation)
+    + Compare greedy decoding against Hugging Face Transformers
+    + Capture a sample run (image + prompt + transcript) in the README
+  + Integration
+    + Add Gemma 4 to the Android app's model list
+    + Add a Gemma 4 example to `data/server.example.ini`
+  + Audio (optional)
+    + Export the Gemma 4 audio encoder to RKNN
+    + Add native WAV loading and log-mel feature extraction
+    + Pass audio embeddings through `multimodal_input.audio`
+    + Expose audio input in the CLI, server, and Android app
+
+- Build and CI
   + Publish prebuilt binaries from tagged releases
-
-- Vision encoder
-  + ~~Load RKNN model from disk~~
-  + ~~Honour `--cores` and set the NPU core mask~~
-  + ~~Query model input/output info and populate `VisionEncoder`~~
-  + ~~Free `input_attrs` / `output_attrs` in `cleanup_vision_encoder`~~
-  + ~~Implement `Session::encode()` with `rknn_inputs_set`, `rknn_run`, `rknn_outputs_get`, and `rknn_outputs_release`~~
-  + Validate tensor layout assumptions for RKNN model metadata (`NCHW` vs `NHWC`, output shape ordering)
-
-- Image preprocessing
-  + ~~Load image with OpenCV, BGR → RGB~~
-  + ~~Pad to square with neutral background (`expand2square`)~~
-  + ~~Resize to model input dimensions~~
-  + Confirm preprocessing matches the Qwen-VL reference (mean/std normalisation, pad colour)
-  + Handle image sources other than files on disk
-
-- Text decoder (RKLLM)
-  + ~~Configure `RKLLMParam` with Qwen-VL `<|vision_start|>` / `<|vision_end|>` / `<|image_pad|>` tokens~~
-  + ~~Initialise the RKLLM handle and register the streaming callback~~
-  + ~~Invoke `rkllm_run` with encoded image vector~~
-  + ~~Update debug logging to use existing logger rather than `printf`~~
-  + Handle `rkllm_clear_kv_cache` for a `clear` REPL command
-
-- CLI and UX
-  + ~~Argument parsing for `--verbose`, `--cores`, etc~~
-  + ~~Run the supplied prompt once and exit when `[prompt]` is provided~~
-  + ~~Drop into an interactive REPL when no prompt is given~~
-  + ~~Expose `--max-new-tokens` and `--max-context-len` flags that flow through to `ModelConfig`~~
-  + ~~Optional Android frontend~~
-    + ~~Allow models to be switched dynamically~~
-  + Install a `SIGINT` handler that destroys the RKLLM handle cleanly
-
-- Tests
-  + ~~Fix the broken reference to `qwen_vl_rknn::target_device()`~~
-  + ~~Replace the placeholder readiness check for `is_ready()` with checks that do not require real RKNN/RKLLM model files~~
-  + ~~Add a host-side preprocessing unit test covering square, portrait, and landscape inputs~~
-  + ~~Remove the dead `expand2square` helper~~
   + Run the host tests in CI
   + Add a smoke test that runs the binary against a tiny fixture model
 
-- Conversion
-  + Bring in scripts for model conversion
-
-- On-device verification
-  + Source or convert a Qwen-VL vision encoder (`.rknn`) and language model (`.rkllm`) suitable for RK3588
-  + Document the conversion recipe
-  + Capture a sample run (image + prompt + transcript) in the README
-  + Measure load and per-token latency for the default model and record baseline numbers
-
-- Documentation
-  + ~~Top-level README with build instructions and project layout~~
-  + ~~AGENTS.md describing the project for assistants~~
-  + Add a "Running" section to the README with concrete CLI examples once `Session::encode()` is functional
-  + Document the expected `thirdparty/` layout and where to download the runtime libraries
-  + Document SmolVLM2 model source in the README "Models" section (currently only Qwen2-VL is covered)
+- CLI and runtime
+  + Handle `rkllm_clear_kv_cache` for a `clear` REPL command
+  + Install a `SIGINT` handler that destroys the RKLLM handle cleanly
+  + Handle image sources other than files on disk
+  + Add RAII wrappers for RKNN primitives
 
 - R&D
-  + Investigate changes required to support Qwen3-VL (**in progress**)
-  + Investigate changes required to support Llama 3.2 Vision models (**in progress**)
-  + Design RAII wrappers for RKNN primitives
-
-- ~~Cleanup~~
-  + ~~Fix CI artifact paths and `build-native.sh`'s undefined `-DVLM_RKNN_ENABLE_RKNN` flag~~
-  + ~~Decide whether the unconditional vision warm-up decode in `main.cc` should be silenced or removed~~
-  + ~~Map `--cores 1` to a single core~~
+  + KV-caching: verify prefix reuse on device by comparing `prefill_time_ms` with and without a loaded prompt cache, and extend prompt caching to the HTTP server (see [`notes/kv-caching.md`](./notes/kv-caching.md))
+  + Cross-attention: support Llama 3.2 Vision via `rkllm_set_cross_attn_params`, which depends on a custom-converted Mllama RKLLM decoder (see [`notes/cross-attention.md`](./notes/cross-attention.md))

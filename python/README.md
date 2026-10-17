@@ -1,6 +1,16 @@
 # Python
 
-The `vlm_rknn` Python package contains utilities for preparing models for use with the C++ RKNN/RKLLM runtime. The current conversion utility converts the model corresponding to Ollama's `gemma3:4b-it-q8_0` into Rockchip RKLLM format.
+The `vlm_rknn` Python package contains utilities for preparing models for use with the C++ RKNN/RKLLM runtime. It includes converters for Gemma 3 and Gemma 4 language models.
+
+## Gemma 4 language model
+
+Run this in the Python container to download `google/gemma-4-E2B-it` and export an FP16 RKLLM model for RK3588:
+
+```bash
+python -m vlm_rknn.convert_gemma4
+```
+
+The default output is `gemma-4-E2B-it-fp16-rk3588.rkllm`. Use `--target rk3576` for RK3576; the default NPU core count adjusts to the target. `--hf-dir`, `--output`, `--npu-cores`, `--max-context`, `--optimization-level`, and `--device` are also available. This converter covers the language model only. Image input requires a separate RKNN vision encoder, as described in [`notes/gemma4.md`](../notes/gemma4.md).
 
 ## How it works
 

@@ -38,20 +38,17 @@ Important:
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
-from huggingface_hub import snapshot_download
+from .rkllm_conversion import CACHE_DIR, convert_rkllm, download_hf_model
 
 
 OLLAMA_MODEL = "gemma3:4b-it-q8_0"
 HF_MODEL = "google/gemma-3-4b-it"
 HF_MODEL_URL = f"https://huggingface.co/{HF_MODEL}"
-CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", ".cache"))
-RKLLM_CACHE_DIR = CACHE_DIR / "rkllm-toolkit"
 
 
 def require_huggingface_login() -> None:
@@ -229,145 +226,6 @@ def validate_gguf(path: Path) -> None:
         )
 
 
-def download_hf_model(output_dir: Path) -> Path:
-    """
-    Download the corresponding original Gemma 3 model.
-
-    Gemma is gated on Hugging Face, so HF_TOKEN must normally be configured
-    and the Gemma license accepted on the Hugging Face account.
-    """
-
-    print(f"Downloading {HF_MODEL}...")
-
-    model_path = snapshot_download(
-        repo_id=HF_MODEL,
-        local_dir=str(output_dir),
-    )
-
-    return Path(model_path)
-
-
-def configure_rkllm_cache(cache_dir: Path) -> Path:
-    """Redirect rkllm-toolkit's hard-coded scratch files to a writable cache."""
-
-    import rkllm.base.opfbs as opfbs
-
-    source_lib_dir = Path(opfbs.root_dir) / "lib"
-    cache_dir = cache_dir.resolve()
-    cache_lib_dir = cache_dir / "lib"
-    cache_lib_dir.mkdir(parents=True, exist_ok=True)
-
-    # opfbs loads these libraries relative to root_dir, where it also creates
-    # large tmp1_*.rkllm and tmp2_*.rkllm intermediate files. Keep the
-    # libraries in the image and expose them in the writable cache via links.
-    for source in source_lib_dir.iterdir():
-        if not source.is_file():
-            continue
-
-        link = cache_lib_dir / source.name
-
-        if link.is_symlink() and link.resolve() == source.resolve():
-            continue
-
-        if link.exists() or link.is_symlink():
-            raise RuntimeError(
-                f"RKLLM cache library path already exists and is not the "
-                f"expected link: {link}"
-            )
-
-        link.symlink_to(source.resolve())
-
-    opfbs.root_dir = str(cache_dir)
-    return cache_dir
-
-
-def convert_rkllm(
-    model_path: Path,
-    output_path: Path,
-    *,
-    target: str,
-    quantization: str,
-    npu_cores: int,
-    max_context: int,
-    hybrid_rate: float,
-    device: str,
-    dtype: str,
-    optimization_level: int,
-) -> None:
-    from rkllm.api import RKLLM
-
-    rkllm_cache_dir = configure_rkllm_cache(RKLLM_CACHE_DIR)
-
-    if quantization in {"w8a8", "w8a8_gx"}:
-        algorithm = "normal"
-    elif quantization in {"w4a16", "w4a16_gx"}:
-        algorithm = "grq"
-    else:
-        raise ValueError(
-            f"Unsupported quantization {quantization!r}"
-        )
-
-    print()
-    print("RKLLM conversion")
-    print("----------------")
-    print(f"Source:       {model_path}")
-    print(f"Output:       {output_path}")
-    print(f"Platform:     {target}")
-    print(f"Quantization: {quantization}")
-    print(f"Algorithm:    {algorithm}")
-    print(f"NPU cores:    {npu_cores}")
-    print(f"Max context:  {max_context}")
-    print(f"Hybrid rate:  {hybrid_rate}")
-    print(f"Optimization: {optimization_level}")
-    print(f"Converter:    {device}")
-    print(f"Source dtype: {dtype}")
-    print(f"Scratch:      {rkllm_cache_dir}")
-    print()
-
-    llm = RKLLM()
-
-    ret = llm.load_huggingface(
-        model=str(model_path),
-        device=device,
-        dtype=dtype,
-    )
-
-    if ret != 0:
-        raise RuntimeError(
-            f"RKLLM load_huggingface() failed: {ret}"
-        )
-
-    ret = llm.build(
-        do_quantization=True,
-        optimization_level=optimization_level,
-        quantized_dtype=quantization,
-        quantized_algorithm=algorithm,
-        target_platform=target,
-        num_npu_core=npu_cores,
-        max_context=max_context,
-        extra_qparams=None,
-        dataset=None,
-        hybrid_rate=hybrid_rate,
-    )
-
-    if ret != 0:
-        raise RuntimeError(
-            f"RKLLM build() failed: {ret}"
-        )
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    ret = llm.export_rkllm(str(output_path))
-
-    if ret != 0:
-        raise RuntimeError(
-            f"RKLLM export_rkllm() failed: {ret}"
-        )
-
-    print()
-    print(f"Created: {output_path}")
-
-
 def main() -> None:
     require_huggingface_login()
 
@@ -475,7 +333,7 @@ def main() -> None:
 
         print()
 
-    model_path = download_hf_model(args.hf_dir)
+    model_path = download_hf_model(HF_MODEL, args.hf_dir)
 
     convert_rkllm(
         model_path=model_path,

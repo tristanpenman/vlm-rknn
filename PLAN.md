@@ -32,8 +32,8 @@
 
 - CLI and runtime
   + Handle `rkllm_clear_kv_cache` for a `clear` REPL command
-  + Install a `SIGINT` handler that destroys the RKLLM handle cleanly
-  + Handle image sources other than files on disk
+  + ~~Install a `SIGINT` handler that destroys the RKLLM handle cleanly~~
+  + ~~Handle image sources other than files on disk~~
   + Add RAII wrappers for RKNN primitives
 
 - R&D

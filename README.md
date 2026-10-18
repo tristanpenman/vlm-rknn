@@ -10,6 +10,7 @@ Currently supports the following models:
 Others are in development:
 
 * Gemma3
+* Gemma4
 * Llama
 * Qwen-VL2.5
 * Qwen-VL3
@@ -34,6 +35,7 @@ Others are in development:
   * [APK Installation](#apk-installation)
 * [Models](#models)
   * [Gemma 3](#gemma-3)
+  * [Gemma 4](#gemma-4)
   * [Qwen2-VL-2b](#qwen2-vl-2b)
   * [Qwen2-VL-7b](#qwen2-vl-7b)
   * [SmolVLM2-256M](#smolvlm2-256m)
@@ -370,6 +372,7 @@ adb shell am start -n  "com.tristanpenman.vlmrknn/.MainActivity"
 This project currently supports the following model families:
 
 - `gemma3`
+- `gemma4` (text only; vision support is in development)
 - `llama`
 - `qwen2-vl`
 - `qwen2.5-vl`
@@ -385,6 +388,26 @@ Support for Gemma is currently a work in progress. Initial support includes `goo
 The vision RKNN model must include both the SigLIP tower and Gemma multimodal projector. It should accept an 896 x 896 `uint8` RGB image with model-side normalisation, and emit a single `[1, 256, hidden_size]` embedding.
 
 The paired RKLLM model must be converted from the same checkpoint. Artifact conversion and device validation are discussed in [`notes/gemma3.md`](./notes/gemma3.md).
+
+### Gemma 4
+
+Initial Gemma 4 support targets `google/gemma-4-E2B-it`. The CLI, prompt-cache tool, and Android runner scripts recognise the `gemma4` model family, but only text inference is currently usable. The fixed-shape RKNN vision encoder has not yet been added, so do not pass `--vision` or `--image` when using the supplied runner scripts.
+
+Convert the language model to an FP16 RKLLM artifact with:
+
+```bash
+./scripts/python-shell-gpu.sh python -m vlm_rknn.convert_gemma4 --device cuda
+```
+
+The default output is `gemma-4-E2B-it-fp16-rk3588.rkllm`. Conversion downloads the gated Hugging Face checkpoint, so you must first accept the Gemma licence and provide a Hugging Face token as described in the [Python conversion instructions](./python/README.md#gemma-4).
+
+To deploy the converted model and start a text-only session on a connected Android device, run:
+
+```bash
+./scripts/run-android-cli.sh <device-ip> gemma4-e2b
+```
+
+Use `--model-family gemma4` when invoking `vlm-rknn` directly. Gemma 4 support requires the vendored RKLLM 1.3.1 runtime. The planned vision and audio work, preprocessing contract, and device-validation checklist are documented in [`notes/gemma4.md`](./notes/gemma4.md).
 
 ### Qwen2-VL-2B
 
@@ -455,6 +478,10 @@ See the [Python README](./python/README.md) for instructions on using the script
 #### `vlm_rknn.convert_gemma3`
 
 Converts the original Gemma3 model corresponding to Ollama's `gemma3:4b-it-q8_0`. Avoids unnecessary re-quantization of lossy weights.
+
+#### `vlm_rknn.convert_gemma4`
+
+Converts the gated `google/gemma-4-E2B-it` language model to an FP16 RKLLM artifact for RK3588. Vision and audio encoder conversion are not yet included.
 
 #### `vlm_rknn.evaluate_model`
 

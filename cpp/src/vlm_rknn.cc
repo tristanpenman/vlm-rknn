@@ -23,22 +23,26 @@ namespace vlm_rknn {
 
 namespace {
 
-struct ModelProfile
-{
-    bool usesVisionEncoder;
-    bool supportsMultimodal;
-    std::int32_t baseDomainId;
-    bool useChatTemplate;
-    const char* imagePlaceholder;
-    const char* imgStart;
-    const char* imgEnd;
-    const char* imgContent;
-    int expectedImageTokens;
-    ImagePreprocessProfile imagePreprocess;
-};
-
 const ModelProfile& modelProfileFor(ModelFamily family)
 {
+    // Chat templates
+    // -------------------------------------------------------------------------
+
+    static constexpr ChatTemplate kGemma4ChatTemplate {
+        "",
+        "<|turn>user\n",
+        "<turn|><|turn>model\n",
+    };
+
+    static constexpr ChatTemplate kSmolvlm2ChatTemplate {
+        "<|im_start|>",
+        "User: ",
+        "<end_of_utterance>\nAssistant:",
+    };
+
+    // Image preprocessing profiles
+    // -------------------------------------------------------------------------
+
     static constexpr ImagePreprocessProfile kQwenVlImagePreprocess {
         ResizeMode::kPadToSquare,
         true,
@@ -61,60 +65,6 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         {1.0f, 1.0f, 1.0f},
     };
 
-    static constexpr ModelProfile kQwen2Vl {
-        true,
-        true,
-        0,
-        false,
-        "<image>",
-        "<|vision_start|>",
-        "<|vision_end|>",
-        "<|image_pad|>",
-        0,
-        kQwenVlImagePreprocess,
-    };
-
-    // TODO: Change if necessary when the actual RKLLM models are available
-    static constexpr ModelProfile kQwen25Vl {
-        true,
-        true,
-        0,
-        false,
-        "<image>",
-        "<|vision_start|>",
-        "<|vision_end|>",
-        "<|image_pad|>",
-        0,
-        kQwenVlImagePreprocess,
-    };
-
-    // TODO: Change if necessary
-    static constexpr ModelProfile kQwen3Vl {
-        true,
-        true,
-        0,
-        false,
-        "<image>",
-        "<|vision_start|>",
-        "<|vision_end|>",
-        "<|image_pad|>",
-        0,
-        kQwenVlImagePreprocess,
-    };
-
-    static constexpr ModelProfile kLlama {
-        false,
-        false,
-        0,
-        false,
-        "",
-        "",
-        "",
-        "",
-        0,
-        kLlamaImagePreprocess,
-    };
-
     static constexpr ImagePreprocessProfile kSmolvlm2ImagePreprocess {
         ResizeMode::kPadToSquare,
         true,
@@ -124,21 +74,6 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         127.5f,
         {0.0f, 0.0f, 0.0f},
         {1.0f, 1.0f, 1.0f},
-    };
-
-    // The SmolVLM2-256M-NPU reference currently uses the same RKLLM multimodal
-    // marker strings as the Qwen-VL path.
-    static constexpr ModelProfile kSmolvlm2 {
-        true,
-        true,
-        1,
-        true,
-        "<image>",
-        "<|vision_start|>",
-        "<|vision_end|>",
-        "<|image_pad|>",
-        0,
-        kSmolvlm2ImagePreprocess,
     };
 
     // Gemma 3's processor produces a fixed 896x896 image. Rescaling and
@@ -171,6 +106,79 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         {1.0f, 1.0f, 1.0f},
     };
 
+    // Model profiles
+    // -------------------------------------------------------------------------
+
+    static constexpr ModelProfile kQwen2Vl {
+        true,
+        true,
+        0,
+        std::nullopt,
+        "<image>",
+        "<|vision_start|>",
+        "<|vision_end|>",
+        "<|image_pad|>",
+        0,
+        kQwenVlImagePreprocess,
+    };
+
+    // TODO: Change if necessary when the actual RKLLM models are available
+    static constexpr ModelProfile kQwen25Vl {
+        true,
+        true,
+        0,
+        std::nullopt,
+        "<image>",
+        "<|vision_start|>",
+        "<|vision_end|>",
+        "<|image_pad|>",
+        0,
+        kQwenVlImagePreprocess,
+    };
+
+    // TODO: Change if necessary
+    static constexpr ModelProfile kQwen3Vl {
+        true,
+        true,
+        0,
+        std::nullopt,
+        "<image>",
+        "<|vision_start|>",
+        "<|vision_end|>",
+        "<|image_pad|>",
+        0,
+        kQwenVlImagePreprocess,
+    };
+
+    static constexpr ModelProfile kLlama {
+        false,
+        false,
+        0,
+        std::nullopt,
+        "",
+        "",
+        "",
+        "",
+        0,
+        kLlamaImagePreprocess,
+    };
+
+    // The SmolVLM2-256M-NPU reference uses the same RKLLM multimodal marker
+    // strings as Qwen-VL, but its text turns follow the SmolVLM2 tokenizer's
+    // distinct User/Assistant and end-of-utterance format.
+    static constexpr ModelProfile kSmolvlm2 {
+        true,
+        true,
+        1,
+        kSmolvlm2ChatTemplate,
+        "<image>",
+        "<|vision_start|>",
+        "<|vision_end|>",
+        "<|image_pad|>",
+        0,
+        kSmolvlm2ImagePreprocess,
+    };
+
     // base_domain_id and chat-template handling must be verified against the
     // converted RKLLM artifact. Keep the runtime default domain and do not
     // install an application-side template in this initial integration.
@@ -178,7 +186,7 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         true,
         true,
         0,
-        false,
+        std::nullopt,
         "<image>",
         "<start_of_image>",
         "<end_of_image>",
@@ -187,13 +195,13 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         kGemma3ImagePreprocess,
     };
 
-    // Gemma 4 uses the RKLLM model's chat template. The domain ID and image
-    // markers follow Rockchip's demo and still need checking on an RK3588.
+    // Gemma 4 needs its turn markers applied by RKLLM. Without them, the
+    // converted instruction model emits EOS immediately for a plain prompt.
     static constexpr ModelProfile kGemma4 {
         true,
         true,
         1,
-        false,
+        kGemma4ChatTemplate,
         "<image>",
         "<|image>",
         "<image|>",
@@ -730,12 +738,13 @@ int Session::initTextDecoder()
         return -1;
     }
 
-    if (profile.useChatTemplate) {
+    if (profile.chatTemplate.has_value()) {
+        const auto& chatTemplate = *profile.chatTemplate;
         ret = rkllm_set_chat_template(
             decoder_.handle,
-            "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n",
-            "<|im_start|>user\n",
-            "<|im_end|>\n<|im_start|>assistant\n");
+            chatTemplate.systemPrompt,
+            chatTemplate.promptPrefix,
+            chatTemplate.promptSuffix);
         if (ret != 0) {
             LOG(ERROR) << "Failed to set RKLLM chat template, error=" << ret;
             return -1;
@@ -1006,7 +1015,10 @@ int Session::decode(const std::string& prompt, float* imgVec)
     RKLLMInferParam rkllmInferParams;
     memset(&rkllmInferParams, 0, sizeof(RKLLMInferParam));
     rkllmInferParams.mode = RKLLM_INFER_GENERATE;
-    rkllmInferParams.keep_history = profile.useChatTemplate ? 1 : 0;
+    // Gemma 4's turn template is required even for independent requests. Do
+    // not retain generated tokens as context between CLI/server calls.
+    rkllmInferParams.keep_history =
+        profile.chatTemplate.has_value() && config_.modelFamily != ModelFamily::kGemma4 ? 1 : 0;
 
     RKLLMInput rkllmInput;
     memset(&rkllmInput, 0, sizeof(RKLLMInput));

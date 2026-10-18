@@ -64,6 +64,27 @@ struct ImagePreprocessProfile
     std::array<float, 3> std;
 };
 
+struct ChatTemplate
+{
+    const char* systemPrompt;
+    const char* promptPrefix;
+    const char* promptSuffix;
+};
+
+struct ModelProfile
+{
+    bool usesVisionEncoder;
+    bool supportsMultimodal;
+    std::int32_t baseDomainId;
+    std::optional<ChatTemplate> chatTemplate;
+    const char* imagePlaceholder;
+    const char* imgStart;
+    const char* imgEnd;
+    const char* imgContent;
+    int expectedImageTokens;
+    ImagePreprocessProfile imagePreprocess;
+};
+
 struct ModelConfig
 {
     ModelFamily modelFamily = ModelFamily::kQwenVL2;

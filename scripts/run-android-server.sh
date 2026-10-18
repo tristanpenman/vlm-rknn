@@ -120,6 +120,18 @@ echo "=== Download models ==="
 
 mkdir -p "${QWEN_CACHE}" "${SMOLVLM_CACHE}"
 
+QWEN_LLM_PATH="${QWEN_CACHE}/${QWEN_LLM_FILE}"
+if [[ -s "${PWD}/${QWEN_LLM_FILE}" ]]; then
+  QWEN_LLM_PATH="${PWD}/${QWEN_LLM_FILE}"
+  echo "Using Qwen language model from current directory: ${QWEN_LLM_PATH}"
+fi
+
+SMOLVLM_LLM_PATH="${SMOLVLM_CACHE}/${SMOLVLM_LLM_FILE}"
+if [[ -s "${PWD}/${SMOLVLM_LLM_FILE}" ]]; then
+  SMOLVLM_LLM_PATH="${PWD}/${SMOLVLM_LLM_FILE}"
+  echo "Using SmolVLM language model from current directory: ${SMOLVLM_LLM_PATH}"
+fi
+
 # Download a file from a Hugging Face base URL into a cache directory, skipping
 # the transfer when a non-empty copy already exists.
 download() {
@@ -136,9 +148,13 @@ download() {
   mv "${dest}.tmp" "${dest}"
 }
 
-download "${QWEN_HF_BASE}" "${QWEN_CACHE}" "${QWEN_LLM_FILE}"
+if [[ "${QWEN_LLM_PATH}" == "${QWEN_CACHE}/${QWEN_LLM_FILE}" ]]; then
+  download "${QWEN_HF_BASE}" "${QWEN_CACHE}" "${QWEN_LLM_FILE}"
+fi
 download "${QWEN_HF_BASE}" "${QWEN_CACHE}" "${QWEN_VISION_FILE}"
-download "${SMOLVLM_HF_BASE}" "${SMOLVLM_CACHE}" "${SMOLVLM_LLM_FILE}"
+if [[ "${SMOLVLM_LLM_PATH}" == "${SMOLVLM_CACHE}/${SMOLVLM_LLM_FILE}" ]]; then
+  download "${SMOLVLM_HF_BASE}" "${SMOLVLM_CACHE}" "${SMOLVLM_LLM_FILE}"
+fi
 download "${SMOLVLM_HF_BASE}" "${SMOLVLM_CACHE}" "${SMOLVLM_VISION_FILE}"
 
 # -----------------------------------------------------------------------------
@@ -242,9 +258,9 @@ echo "=== Push files to device ==="
 "${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/Android/arm64-v8a/libomp.so" "${REMOTE_LIB_DIR}/"
 
 # Model files are large; only push when missing or changed on the device.
-sync_model "${QWEN_CACHE}/${QWEN_LLM_FILE}" "${REMOTE_QWEN_DIR}/${QWEN_LLM_FILE}"
+sync_model "${QWEN_LLM_PATH}" "${REMOTE_QWEN_DIR}/${QWEN_LLM_FILE}"
 sync_model "${QWEN_CACHE}/${QWEN_VISION_FILE}" "${REMOTE_QWEN_DIR}/${QWEN_VISION_FILE}"
-sync_model "${SMOLVLM_CACHE}/${SMOLVLM_LLM_FILE}" "${REMOTE_SMOLVLM_DIR}/${SMOLVLM_LLM_FILE}"
+sync_model "${SMOLVLM_LLM_PATH}" "${REMOTE_SMOLVLM_DIR}/${SMOLVLM_LLM_FILE}"
 sync_model "${SMOLVLM_CACHE}/${SMOLVLM_VISION_FILE}" "${REMOTE_SMOLVLM_DIR}/${SMOLVLM_VISION_FILE}"
 
 "${ADB[@]}" shell chmod 755 "${REMOTE_DIR}/vlm-rknn-server"

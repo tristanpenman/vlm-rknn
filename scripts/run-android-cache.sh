@@ -9,7 +9,7 @@ set -euo pipefail
 #
 # Arguments:
 #   device-ip    IP address (or host) of the target device, as used by `adb connect`.
-#   model        Model to run: qwen2-vl-2b, qwen2-vl-7b, or gemma3-4b.
+#   model        Model to run: qwen2-vl-2b, qwen2-vl-7b, gemma3-4b, or gemma4-e2b.
 #   prompt       Fixed prompt prefix to store in the cache.
 #   remote-path  Directory to push files to on the device (default /data/local/tmp).
 #
@@ -20,29 +20,39 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build-android}"
-MODEL_CACHE_ROOT="${ROOT_DIR}/.cache"
+CACHE_DIR="${ROOT_DIR}/.cache"
 
+# Set the download and runtime parameters for a supported model. Gemma artifacts
+# are cache-only because compatible converted files are not currently available
+# from Hugging Face.
 load_model_config() {
   case "$1" in
     qwen2-vl-2b)
       MODEL_FAMILY="qwen2-vl"
       HF_REPO="ThomasTheMaker/Qwen2-VL-2B-rkllm"
       LLM_FILE="Qwen2-VL-2B-Instruct.rkllm"
-      MODEL_CACHE_NAME="qwen2-vl-2b"
+      CACHE_NAME="qwen2-vl-2b"
       DOWNLOAD_SOURCE="huggingface"
       ;;
     qwen2-vl-7b)
       MODEL_FAMILY="qwen2-vl"
       HF_REPO="3ib0n/Qwen2-VL-7B-rkllm"
       LLM_FILE="Qwen2-VL-7B-Instruct.rkllm"
-      MODEL_CACHE_NAME="qwen2-vl-7b"
+      CACHE_NAME="qwen2-vl-7b"
       DOWNLOAD_SOURCE="huggingface"
       ;;
     gemma3-4b)
       MODEL_FAMILY="gemma3"
       HF_REPO=""
       LLM_FILE="gemma3-4b-it.rkllm"
-      MODEL_CACHE_NAME="gemma3-4b"
+      CACHE_NAME="gemma3-4b"
+      DOWNLOAD_SOURCE="cache"
+      ;;
+    gemma4-e2b)
+      MODEL_FAMILY="gemma4"
+      HF_REPO=""
+      LLM_FILE="gemma-4-E2B-it-fp16-rk3588.rkllm"
+      CACHE_NAME="gemma4-e2b"
       DOWNLOAD_SOURCE="cache"
       ;;
     *)
@@ -62,7 +72,7 @@ Usage: $0 <device-ip> <model> <prompt> [remote-path]
 
 Arguments:
   device-ip    IP address (or host) of the target device, as used by adb connect.
-  model        Model to run: qwen2-vl-2b, qwen2-vl-7b, or gemma3-4b.
+  model        Model to run: qwen2-vl-2b, qwen2-vl-7b, gemma3-4b, or gemma4-e2b.
   prompt       Fixed prompt prefix to store in the cache.
   remote-path  Directory to push files to on the device (default /data/local/tmp).
 
@@ -75,11 +85,11 @@ fi
 
 if ! load_model_config "${MODEL}"; then
   echo "Error: unsupported model '${MODEL}'." >&2
-  echo "Expected one of: qwen2-vl-2b, qwen2-vl-7b, gemma3-4b." >&2
+  echo "Expected one of: qwen2-vl-2b, qwen2-vl-7b, gemma3-4b, gemma4-e2b." >&2
   exit 1
 fi
 
-MODEL_CACHE="${MODEL_CACHE_ROOT}/${MODEL_CACHE_NAME}"
+MODEL_CACHE="${CACHE_DIR}/${CACHE_NAME}"
 REMOTE_MODEL_DIR="${REMOTE_DIR}/models/${MODEL}"
 CACHE_PATH="${CACHE_PATH:-${REMOTE_MODEL_DIR}/prompt.cache}"
 
@@ -112,6 +122,12 @@ echo "=== Prepare model ==="
 
 mkdir -p "${MODEL_CACHE}"
 
+LLM_PATH="${MODEL_CACHE}/${LLM_FILE}"
+if [[ -s "${PWD}/${LLM_FILE}" ]]; then
+  LLM_PATH="${PWD}/${LLM_FILE}"
+  echo "Using language model from current directory: ${LLM_PATH}"
+fi
+
 download() {
   local file="$1"
   local dest="${MODEL_CACHE}/${file}"
@@ -126,10 +142,14 @@ download() {
 }
 
 if [[ "${DOWNLOAD_SOURCE}" == "huggingface" ]]; then
-  download "${LLM_FILE}"
-elif [[ ! -s "${MODEL_CACHE}/${LLM_FILE}" ]]; then
+  if [[ "${LLM_PATH}" == "${MODEL_CACHE}/${LLM_FILE}" ]]; then
+    download "${LLM_FILE}"
+  fi
+elif [[ ! -s "${LLM_PATH}" ]]; then
   echo "Error: Model artifacts are not available for automatic download." >&2
-  echo "Add the required language model at: ${MODEL_CACHE}/${LLM_FILE}" >&2
+  echo "Add the required language model to the current or cache directory:" >&2
+  echo "  Current: ${PWD}/${LLM_FILE}" >&2
+  echo "  Cache:   ${MODEL_CACHE}/${LLM_FILE}" >&2
   exit 1
 fi
 
@@ -188,7 +208,7 @@ echo "=== Push files to device ==="
 "${ADB[@]}" push "${ROOT_DIR}/thirdparty/rknpu2/Android/arm64-v8a/librknnrt.so" "${REMOTE_LIB_DIR}/"
 "${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/Android/arm64-v8a/librkllmrt.so" "${REMOTE_LIB_DIR}/"
 "${ADB[@]}" push "${ROOT_DIR}/thirdparty/rkllm/Android/arm64-v8a/libomp.so" "${REMOTE_LIB_DIR}/"
-sync_model "${MODEL_CACHE}/${LLM_FILE}" "${REMOTE_MODEL_DIR}/${LLM_FILE}"
+sync_model "${LLM_PATH}" "${REMOTE_MODEL_DIR}/${LLM_FILE}"
 "${ADB[@]}" shell chmod 755 "${REMOTE_DIR}/vlm-rknn-cache"
 
 echo "=== Generate prompt cache on ${SERIAL} ==="

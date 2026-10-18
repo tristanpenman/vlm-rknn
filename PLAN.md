@@ -16,9 +16,9 @@
     + Confirm preprocessing matches the Hugging Face reference (resize mode, pad colour, normalisation)
     + Compare greedy decoding against Hugging Face Transformers
     + Capture a sample run (image + prompt + transcript) in the README
-  + Integration
-    + Add Gemma 4 to the Android app's model list
-    + Add a Gemma 4 example to `data/server.example.ini`
+  + ~~Integration~~
+    + ~~Add Gemma 4 to the Android app's model list~~
+    + ~~Add a Gemma 4 example to `data/server.example.ini`~~
   + Audio (optional)
     + Export the Gemma 4 audio encoder to RKNN
     + Add native WAV loading and log-mel feature extraction

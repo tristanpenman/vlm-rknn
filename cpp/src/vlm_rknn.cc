@@ -155,6 +155,22 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         {1.0f, 1.0f, 1.0f},
     };
 
+    // Rockchip's fixed-shape Gemma 4 RKNN export accepts uint8 RGB input. Its
+    // conversion configuration performs the model's [0, 255] to [0, 1]
+    // rescaling, while the deployment demo pads the source image to a square
+    // with mid-grey before resizing it to the encoder dimensions. This is not
+    // the variable-resolution preprocessing used by canonical Gemma 4.
+    static constexpr ImagePreprocessProfile kGemma4RknnImagePreprocess {
+        ResizeMode::kPadToSquare,
+        true,
+        false,
+        127.5f,
+        127.5f,
+        127.5f,
+        {0.0f, 0.0f, 0.0f},
+        {1.0f, 1.0f, 1.0f},
+    };
+
     // base_domain_id and chat-template handling must be verified against the
     // converted RKLLM artifact. Keep the runtime default domain and do not
     // install an application-side template in this initial integration.
@@ -183,7 +199,7 @@ const ModelProfile& modelProfileFor(ModelFamily family)
         "<image|>",
         "<|image|>",
         0,
-        kQwenVlImagePreprocess,
+        kGemma4RknnImagePreprocess,
     };
 
     switch (family) {

@@ -36,20 +36,20 @@ struct VisionEncoder
 
 enum class ModelFamily
 {
+    kGemma3,
+    kGemma4,
     kQwenVL2,
     kQwenVL2_5,
     kQwenVL3,
     kLlama,
     kSmolVLM2,
-    kGemma3,
-    kGemma4,
 };
 
 enum class ResizeMode
 {
+    kCenterCrop,
     kPadToSquare,
     kStretch,
-    kCenterCrop,
 };
 
 struct ImagePreprocessProfile

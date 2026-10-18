@@ -17,6 +17,16 @@ The vendored RKLLM 1.3.1 runtime already supports Gemma 4. Rockchip's [`rknn-llm
 | Chat template       | None                                                         | None (left to the runtime's template from the `.rkllm` file)                         |
 | Audio               | n/a                                                          | Separate RKNN audio encoder; RKLLM 1.3.1 adds `multimodal_input.audio`               |
 
+## Image preprocessing
+
+Google's canonical Gemma 4 and Rockchip's fixed-shape RKNN export have different image input contracts. They should not be treated as the same preprocessing pipeline.
+
+The canonical Hugging Face processor converts images to RGB and resizes them with bicubic interpolation while preserving their aspect ratio. The target dimensions are selected from a visual-token budget of 70, 140, 280, 560 or 1120 tokens. Both dimensions are multiples of 48 because the processor creates 16×16 patches and the vision model pools each 3×3 patch block. Pixels are rescaled from `[0, 255]` to `[0, 1]` without further mean/std normalisation. The processor then patchifies the image, generates two-dimensional position IDs and pads the patch sequence rather than padding the decoded image.
+
+Rockchip adapts this variable-resolution interface to a static RKNN graph. Its Gemma 4 exporter defaults to a nominal 448×448 input and rounds each dimension up to a multiple of 48, producing a 480×480 graph with fixed position IDs. The RKNN conversion uses mean `[0, 0, 0]` and standard deviation `[255, 255, 255]`, so `/255` rescaling is performed inside the RKNN artifact. Rockchip's deployment demo converts BGR to RGB, pads non-square images with RGB `(127.5, 127.5, 127.5)`, and resizes that square to the graph's input dimensions.
+
+This repository's `kGemma4RknnImagePreprocess` profile follows the Rockchip approach - RGB conversion, mid-grey square padding, resizing to the dimensions reported by the RKNN model, and no host-side normalisation. It is compatible only with an artifact produced by Rockchip's conversion scripts. Supporting canonical variable-resolution input would require dynamic image dimensions, position IDs, the actual image-token count and patch-sequence padding. This is out of scope for this project.
+
 ## Plan
 
 The phases are listed in the order they should be done. Phase 2 can be written before Phase 1 is finished, but it cannot be validated until a converted `.rknn`/`.rkllm` pair runs on an RK3588.
@@ -53,8 +63,9 @@ These changes are confined to the model-family plumbing.
    - `baseDomainId = 1`, to be checked on the device;
    - `useChatTemplate = false`.
 3. **Add a preprocessing profile.**
-   - Resize mode: `kPadToSquare` with a 127.5 grey pad matches the demo. Gemma 4 itself preserves aspect ratio, so this is worth comparing against the Hugging Face processor later.
-   - Set `normalizeInHost = false`.
+   - Use a distinct `kGemma4RknnImagePreprocess` profile rather than aliasing the Qwen profile, even though both currently use `kPadToSquare` with a 127.5 grey pad.
+   - Set `normalizeInHost = false`; Rockchip's RKNN conversion performs `/255` rescaling inside the model.
+   - Keep this explicitly scoped to Rockchip's fixed-shape export. Canonical Gemma 4 preserves aspect ratio and pads patches, not image pixels.
 4. **Generalise the init checks.**
    - The hard-coded Gemma 3 check for an 896×896 input should become profile-driven, or be skipped for Gemma 4.
    - The single-input/single-output check can stay if position IDs are folded in. If not, `encode()` needs a second input tensor.
@@ -91,13 +102,15 @@ This is the only part that adds a new capability rather than a new profile, and 
 2. **Token count at 480×480.** One reading of the export script gives 900 tokens with no separate pooler. That conflicts with Gemma 4's stated pooling kernel of 3 and its 70–1120 token budgets. Reading the count from the RKNN output makes the C++ side safe either way, but the converted model needs checking.
 3. **Calibration for quantization.** Rockchip's calibration script (`make_input_embeds_for_quantize.py`) only supports Qwen2-VL, so quantizing Gemma 4 with real image data may need a custom calibration set.
 
-The Gemma 4 architecture details above (token budgets, pooling kernel) come from secondary sources that disagree with each other, and should be checked against the official Hugging Face model card.
-
 ## References
 
+- [Google Gemma 4 image understanding](https://ai.google.dev/gemma/docs/capabilities/vision/image)
+- [Gemma 4 processor configuration](https://huggingface.co/google/gemma-4-E4B/blob/main/processor_config.json)
+- [Hugging Face Gemma 4 image processor](https://github.com/huggingface/transformers/blob/main/src/transformers/models/gemma4/image_processing_gemma4.py)
 - [airockchip/rknn-llm](https://github.com/airockchip/rknn-llm)
 - [rknn-llm multimodal demo](https://github.com/airockchip/rknn-llm/tree/main/examples/multimodal_model_demo)
 - [`export_vision_gemma4.py`](https://github.com/airockchip/rknn-llm/blob/main/examples/multimodal_model_demo/export/export_vision_gemma4.py)
+- [`export_vision_rknn.py`](https://github.com/airockchip/rknn-llm/blob/main/examples/multimodal_model_demo/export/export_vision_rknn.py)
 - [Demo `main.cpp`](https://github.com/airockchip/rknn-llm/blob/main/examples/multimodal_model_demo/deploy/src/main.cpp)
 - [Keras Hub Gemma 4 image converter](https://keras.io/keras_hub/api/models/gemma4/gemma4_image_converter)
 - [Gemma 4 architecture walkthrough](https://programmerraja.is-a.dev/notes/AI-ML/Generative-AI/Gemma-4)

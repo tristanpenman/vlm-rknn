@@ -138,6 +138,7 @@ class Session
 {
 public:
     using OutputCallback = std::function<void(const char* text, LLMCallState state)>;
+    using CancellationCallback = std::function<bool()>;
 
 private:
     int initVisionEncoder();
@@ -157,6 +158,7 @@ public:
     std::string describe() const;
     bool promptContainsImage(const std::string& prompt) const;
     void setOutputCallback(OutputCallback callback);
+    void setCancellationCallback(CancellationCallback callback);
 
     const VisionEncoder& visionEncoder() const
     {
@@ -190,6 +192,7 @@ private:
 
     std::string lastDecodedText_;
     OutputCallback outputCallback_;
+    CancellationCallback cancellationCallback_;
 };
 
 }  // namespace vlm_rknn

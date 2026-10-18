@@ -15,6 +15,7 @@
 
 #include <cerrno>
 #include <climits>
+#include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -28,6 +29,22 @@
 #include "vlm_rknn.h"
 
 namespace {
+
+volatile std::sig_atomic_t g_interrupted = 0;
+
+void handleSigint(int)
+{
+    g_interrupted = 1;
+}
+
+bool installSigintHandler()
+{
+    struct sigaction action {};
+    action.sa_handler = handleSigint;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    return sigaction(SIGINT, &action, nullptr) == 0;
+}
 
 void printUsage(const char* program)
 {
@@ -75,6 +92,11 @@ bool parseIntOption(const char* option, const char* value, int minValue, int max
 int main(int argc, char** argv)
 {
     Logger::configure(std::cout);
+
+    if (!installSigintHandler()) {
+        LOG(ERROR) << "Failed to install SIGINT handler: " << std::strerror(errno);
+        return 1;
+    }
 
     std::optional<int> numCores;
     std::optional<int> maxNewTokens;
@@ -264,6 +286,7 @@ int main(int argc, char** argv)
     }
 
     vlm_rknn::Session session(config);
+    session.setCancellationCallback([]() { return g_interrupted != 0; });
 
     if (session.init() != 0) {
         LOG(ERROR) << "Session initialization failed.";
@@ -289,6 +312,10 @@ int main(int argc, char** argv)
             LOG(INFO) << "Running decoder with prompt: " << *prompt;
             ret = session.decode(*prompt, nullptr);
             if (ret != 0) {
+                if (g_interrupted != 0) {
+                    LOG(INFO) << "SIGINT received; shutting down.";
+                    return 130;
+                }
                 LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
                 return -1;
             }
@@ -297,9 +324,15 @@ int main(int argc, char** argv)
             LOG(INFO) << "Type ':quit' or ':exit' to end the session.";
             std::string replPrompt;
             while (true) {
+                if (g_interrupted != 0) {
+                    LOG(INFO) << "SIGINT received; shutting down.";
+                    break;
+                }
                 std::cout << "> " << std::flush;
                 if (!std::getline(std::cin, replPrompt)) {
-                    LOG(INFO) << "EOF received, exiting REPL.";
+                    LOG(INFO) << (g_interrupted != 0
+                            ? "SIGINT received; shutting down."
+                            : "EOF received, exiting REPL.");
                     break;
                 }
                 if (replPrompt == ":quit" || replPrompt == ":exit") {
@@ -311,12 +344,16 @@ int main(int argc, char** argv)
                 }
                 ret = session.decode(replPrompt, nullptr);
                 if (ret != 0) {
+                    if (g_interrupted != 0) {
+                        LOG(INFO) << "SIGINT received; shutting down.";
+                        return 130;
+                    }
                     LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
                     return -1;
                 }
             }
         }
-        return 0;
+        return g_interrupted != 0 ? 130 : 0;
     }
 
     // Load the image using OpenCV.
@@ -366,6 +403,10 @@ int main(int argc, char** argv)
         LOG(INFO) << "Running decoder with prompt: " << *prompt;
         ret = session.decode(*prompt, imgVec.data());
         if (ret != 0) {
+            if (g_interrupted != 0) {
+                LOG(INFO) << "SIGINT received; shutting down.";
+                return 130;
+            }
             LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
             return -1;
         }
@@ -374,9 +415,15 @@ int main(int argc, char** argv)
         LOG(INFO) << "Type ':quit' or ':exit' to end the session.";
         std::string prompt;
         while (true) {
+            if (g_interrupted != 0) {
+                LOG(INFO) << "SIGINT received; shutting down.";
+                break;
+            }
             std::cout << "> " << std::flush;
             if (!std::getline(std::cin, prompt)) {
-                LOG(INFO) << "EOF received, exiting REPL.";
+                LOG(INFO) << (g_interrupted != 0
+                        ? "SIGINT received; shutting down."
+                        : "EOF received, exiting REPL.");
                 break;
             }
             if (prompt == ":quit" || prompt == ":exit") {
@@ -388,11 +435,15 @@ int main(int argc, char** argv)
             }
             ret = session.decode(prompt, imgVec.data());
             if (ret != 0) {
+                if (g_interrupted != 0) {
+                    LOG(INFO) << "SIGINT received; shutting down.";
+                    return 130;
+                }
                 LOG(ERROR) << "Failed to run decoder with prompt, error=" << ret;
                 return -1;
             }
         }
     }
 
-    return 0;
+    return g_interrupted != 0 ? 130 : 0;
 }

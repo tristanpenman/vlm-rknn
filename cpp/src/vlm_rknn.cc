@@ -870,6 +870,11 @@ void Session::setOutputCallback(OutputCallback callback)
     outputCallback_ = std::move(callback);
 }
 
+void Session::setCancellationCallback(CancellationCallback callback)
+{
+    cancellationCallback_ = std::move(callback);
+}
+
 int Session::encode(void* imgData, float* outResult)
 {
     if (encoder_.rknnContext == 0) {
@@ -1069,6 +1074,13 @@ int Session::decode(const std::string& prompt, float* imgVec)
     }
 
     int ret = rkllm_run(decoder_.handle, &rkllmInput, &rkllmInferParams, this);
+    if (cancellationCallback_ && cancellationCallback_()) {
+        const int abortRet = rkllm_abort(decoder_.handle);
+        if (abortRet != 0) {
+            LOG(WARNING) << "Failed to abort interrupted RKLLM run, error=" << abortRet;
+        }
+        return -1;
+    }
     if (ret != 0) {
         LOG(ERROR) << "Failed to run RKLLM, error=" << ret;
         return ret;
@@ -1143,6 +1155,10 @@ int Session::loadPromptCache(const std::string& cachePath)
 int Session::callback(RKLLMResult* result, void* userdata, LLMCallState state)
 {
     Session* session = static_cast<Session*>(userdata);
+
+    if (session->cancellationCallback_ && session->cancellationCallback_()) {
+        return 1;
+    }
 
     if (state == RKLLM_RUN_FINISH) {
         LOG(INFO) << "RKLLM run finished";

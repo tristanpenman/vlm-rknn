@@ -27,6 +27,10 @@ python -c \
   'import torch; print(torch.version.cuda); print(torch.cuda.is_available())'
 ```
 
+### Hugging Face
+
+Access to the Gemma 3 model will require that you log in using Hugging Face. Gemma 4 does not require this, but doing so may improve download times.
+
 Inside the selected container, authenticate with the Hugging Face CLI before running the converter:
 
 ```bash
@@ -113,6 +117,8 @@ RKLLM Toolkit 1.3.0 declares exact dependencies on PyTorch 2.6.0 and torchvision
 
 ## Gemma 4
 
+This converter covers the language model only. Image input requires a separate RKNN vision encoder, as described in [`notes/gemma4.md`](../notes/gemma4.md).
+
 ### Usage
 
 Run this in the Python container to download `google/gemma-4-E2B-it` and export an FP16 RKLLM model for RK3588:
@@ -123,7 +129,15 @@ python -m vlm_rknn.convert_gemma4
 
 ### Options
 
-The default output is `gemma-4-E2B-it-fp16-rk3588.rkllm`. Use `--target rk3576` for RK3576; the default NPU core count adjusts to the target. `--hf-dir`, `--output`, `--npu-cores`, `--max-context`, `--optimization-level`, and `--device` are also available. This converter covers the language model only. Image input requires a separate RKNN vision encoder, as described in [`notes/gemma4.md`](../notes/gemma4.md).
+| Option                 | Default                                | Description                                      |
+|------------------------|----------------------------------------|--------------------------------------------------|
+| `--hf-dir`             | `.cache/gemma-4-E2B-it`                | Hugging Face model directory                     |
+| `--output` or `-o`     | `gemma-4-E2B-it-fp16-rk3588.rkllm`     | Destination RKLLM file                           |
+| `--target`             | `rk3588`                               | Target platform: `rk3588` or `rk3576`            |
+| `--npu-cores`          | `3` (RK3588), `2` (RK3576)             | Number of target NPU cores                       |
+| `--max-context`        | `4096`                                 | Maximum context length                           |
+| `--optimization-level` | `1`                                    | `0` prioritizes memory, `1` prioritizes accuracy |
+| `--device`             | `cpu`                                  | Conversion device: `cpu` or `cuda`               |
 
 ## Model evaluation
 

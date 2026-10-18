@@ -2,15 +2,15 @@
 
 - Gemma 4 support (see [`notes/gemma4.md`](./notes/gemma4.md))
   + Model conversion
-    + Add the `rkllm_toolkit` 1.3.1 wheel and pin `transformers` / `onnx` to the versions Rockchip's demo requires
-    + Add `convert_gemma4.py` for `google/gemma-4-E2B-it`, sharing download and build logic with `convert_gemma3.py`
+    + ~~Add the `rkllm_toolkit` 1.3.1 wheel and pin `transformers` / `onnx` to the versions Rockchip's demo requires~~
+    + ~~Add `convert_gemma4.py` for `google/gemma-4-E2B-it`, sharing download and build logic with `convert_gemma3.py`~~
+    + ~~Document the conversion recipe~~
     + Export the vision encoder to RKNN at a fixed resolution, folding `pixel_position_ids` into the graph
-    + Document the conversion recipe
   + C++ text and image support
-    + Add the `kGemma4` model family, parse aliases, and CLI help text
+    + ~~Add the `kGemma4` model family, parse aliases, and CLI help text~~
+    + ~~Add parse and family assertions to the host tests~~
     + Make the Gemma 3 vision input checks profile-driven
     + Validate tensor layout assumptions for RKNN model metadata (`NCHW` vs `NHWC`, output shape ordering)
-    + Add parse and family assertions to the host tests
   + Device validation
     + Compare RKNN vision output against the PyTorch reference
     + Confirm preprocessing matches the Hugging Face reference (resize mode, pad colour, normalisation)

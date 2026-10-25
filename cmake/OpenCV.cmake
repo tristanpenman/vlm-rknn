@@ -81,6 +81,8 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE
 )
 
+# OpenCV's older default minimum triggers a deprecation warning in CMake 3.31.
+set(MIN_VER_CMAKE 3.10)
 FetchContent_MakeAvailable(opencv)
 
 # OpenCV's in-tree consumption (via add_subdirectory) does not set

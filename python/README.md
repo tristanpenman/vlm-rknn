@@ -227,3 +227,60 @@ python -m vlm_rknn.evaluate_model evaluation/manifest.json \
 ```
 
 The command exits with status `0` when both overall thresholds are met, `1` when either threshold is missed, and `2` for invalid input or setup errors. A timed-out sample is recorded as failed with return code `124`; any other non-zero model return code also fails the sample.
+
+## Host baseline
+
+The `vlm_rknn.validate_gemma3` module runs Gemma 3 on the host so that device results have something to be measured against. It reads the same manifest as `vlm_rknn.evaluate_model` and writes a report in the same shape, so the two runs can be compared sample by sample.
+
+Inference happens inside the Python process using Transformers, with CUDA when a GPU is visible, so no Ollama server or external runner is involved. By default the script uses the GGUF behind Ollama's `gemma3:4b-it-q8_0`, falling back to [`ggml-org/gemma-3-4b-it-GGUF`](https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF) when Ollama is unavailable.
+
+This script needs `torch`, so it must be run from the GPU shell:
+
+```bash
+./scripts/python-shell-gpu.sh
+python -m vlm_rknn.validate_gemma3 evaluation/manifest.json
+```
+
+Decoding is greedy by default, which keeps the baseline reproducible:
+
+```bash
+python -m vlm_rknn.validate_gemma3 evaluation/manifest.json \
+  --max-new-tokens 256 \
+  --output-dir baseline-results/gemma3
+```
+
+Alongside `report.json` and `report.md`, the host answers are written to `answers/<id>.txt`. A reviewed host run can therefore be promoted to the expected output of a device evaluation:
+
+```bash
+python -m vlm_rknn.evaluate_model evaluation/device-manifest.json \
+  --command './vlm-rknn-cli --model gemma-3-4b-it-w8a8-rk3588.rkllm'
+```
+
+### Baseline caveats
+
+The Transformers GGUF reader dequantizes Q8_0 blocks back to dense tensors. Weight *values* therefore match Ollama exactly, but the arithmetic is bfloat16 or float32 rather than llama.cpp's int8 kernels. Treat this as a reference for answer quality, not as a bit-exact reproduction of an Ollama transcript.
+
+Ollama's blob does carry the Gemma 3 vision tower, but Transformers loads a GGUF as a text decoder and drops those tensors. The baseline therefore covers text prompts only.
+
+Ollama's blob omits `gemma3.vocab_size`, which leads Transformers to count tokenizer entries instead and arrive at one more than the embedding has rows. The script reads the row count from `token_embd.weight` and overrides the config, reporting the correction when it applies.
+
+### Baseline options
+
+| Option             | Default                       | Description                                                       |
+|--------------------|-------------------------------|-------------------------------------------------------------------|
+| `--source`         | `auto`                        | `auto`, `ollama`, or `huggingface`; `auto` tries Ollama first     |
+| `--gguf`           | none                          | Path to an int8 GGUF to use instead of downloading one            |
+| `--ollama-model`   | `gemma3:4b-it-q8_0`           | Ollama model to run                                               |
+| `--hf-repo`        | `ggml-org/gemma-3-4b-it-GGUF` | Hugging Face repository used as the fallback                      |
+| `--hf-file`        | `gemma-3-4b-it-Q8_0.gguf`     | GGUF file to download from that repository                        |
+| `--device`         | `auto`                        | `auto`, `cuda`, or `cpu`; `auto` uses CUDA when a GPU is visible  |
+| `--dtype`          | `auto`                        | `bfloat16` on CUDA, `float16` before Ampere, `float32` on CPU     |
+| `--system`         | none                          | System prompt, prepended to the user turn as Gemma 3 expects      |
+| `--max-new-tokens` | `512`                         | Generation limit per sample                                       |
+| `--temperature`    | `0.0`                         | `0` selects greedy decoding                                       |
+| `--top-p`          | `0.95`                        | Nucleus sampling cutoff, used only when sampling                  |
+| `--output-dir`     | `baseline-results`            | Directory for `report.json`, `report.md`, and `answers/`          |
+| `--min-pass-rate`  | `0.0`                         | Required overall pass rate from `0` to `1`                        |
+| `--min-mean-score` | `0.0`                         | Required overall mean score from `0` to `1`                       |
+
+Exit statuses match `vlm_rknn.evaluate_model`: `0` when both overall thresholds are met, `1` when either is missed, and `2` for invalid input or setup errors. Interrupting a run writes a report covering the samples completed so far and exits with `130`.

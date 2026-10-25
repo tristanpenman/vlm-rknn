@@ -258,6 +258,8 @@ python -m vlm_rknn.evaluate_model evaluation/device-manifest.json \
 
 ### Baseline caveats
 
+Gemma 3 overflows in `float16`: its activations exceed the range, hidden states become NaN, and generation degenerates into padding, which shows up as empty answers that run to the token limit. Only `bfloat16` and `float32` produce valid output, so `--dtype float16` warns and `auto` never selects it. Pre-Ampere GPUs have no native bfloat16, but PyTorch runs it by converting, which is both correct and much faster than keeping a 4B model in `float32`.
+
 The Transformers GGUF reader dequantizes Q8_0 blocks back to dense tensors. Weight *values* therefore match Ollama exactly, but the arithmetic is bfloat16 or float32 rather than llama.cpp's int8 kernels. Treat this as a reference for answer quality, not as a bit-exact reproduction of an Ollama transcript.
 
 Ollama's blob does carry the Gemma 3 vision tower, but Transformers loads a GGUF as a text decoder and drops those tensors. The baseline therefore covers text prompts only.
@@ -274,7 +276,7 @@ Ollama's blob omits `gemma3.vocab_size`, which leads Transformers to count token
 | `--hf-repo`        | `ggml-org/gemma-3-4b-it-GGUF` | Hugging Face repository used as the fallback                      |
 | `--hf-file`        | `gemma-3-4b-it-Q8_0.gguf`     | GGUF file to download from that repository                        |
 | `--device`         | `auto`                        | `auto`, `cuda`, or `cpu`; `auto` uses CUDA when a GPU is visible  |
-| `--dtype`          | `auto`                        | `bfloat16` on CUDA, `float16` before Ampere, `float32` on CPU     |
+| `--dtype`          | `auto`                        | `bfloat16` on CUDA, `float32` on CPU; see the caveats above       |
 | `--system`         | none                          | System prompt, prepended to the user turn as Gemma 3 expects      |
 | `--max-new-tokens` | `512`                         | Generation limit per sample                                       |
 | `--temperature`    | `0.0`                         | `0` selects greedy decoding                                       |

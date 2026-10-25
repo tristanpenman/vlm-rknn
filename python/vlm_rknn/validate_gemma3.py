@@ -226,7 +226,22 @@ def select_device(requested: str) -> str:
 
 
 def select_dtype(requested: str, device: str):
+    """
+    Choose a compute dtype.
+
+    Gemma 3 overflows in float16: activations exceed its range, the hidden
+    states go to NaN, and generation degenerates into padding. Only bfloat16
+    and float32 are safe, so float16 is never chosen automatically.
+    """
+
     import torch
+
+    if requested == "float16":
+        print(
+            "warning: Gemma 3 overflows in float16 and will emit empty "
+            "answers. Use bfloat16 or float32 instead.",
+            file=sys.stderr,
+        )
 
     if requested != "auto":
         return getattr(torch, requested)
@@ -234,11 +249,16 @@ def select_dtype(requested: str, device: str):
     if device != "cuda":
         return torch.float32
 
-    # Pre-Ampere cards, such as the GTX 10 series, have no native bfloat16.
-    # torch.cuda.is_bf16_supported() reports emulation as support, so test the
-    # compute capability instead and keep those cards on float16.
-    major, _ = torch.cuda.get_device_capability()
-    return torch.bfloat16 if major >= 8 else torch.float16
+    # Pre-Ampere cards, such as the GTX 10 series, have no native bfloat16,
+    # but torch still runs it by converting, which is both correct and far
+    # quicker than keeping a 4B model in float32.
+    if torch.cuda.get_device_capability()[0] < 8:
+        print(
+            "note: this GPU has no native bfloat16, so bfloat16 ops are "
+            "converted rather than run directly."
+        )
+
+    return torch.bfloat16
 
 
 class Gemma3Baseline:

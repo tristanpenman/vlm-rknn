@@ -4,12 +4,6 @@
 
 This repo contains a starter CMake project for running Qwen-VL style multimodal models on Rockchip devices via RKNN/RKLLM.
 
-## Structure
-
-The `cpp` directory contains C++ source code for a Qwen-VL demo.
-
-The `thirdparty` directory contains RKNN and RKLLM libraries.
-
 ## Guidelines
 
 Do not try to run CMake directly. Use the build steps documented below.

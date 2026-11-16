@@ -264,6 +264,13 @@ def main() -> None:
     )
 
     parser.add_argument(
+        "--calibration-dataset",
+        type=Path,
+        default=None,
+        help="Text calibration dataset JSON file (relative to the current directory)",
+    )
+
+    parser.add_argument(
         "--npu-cores",
         type=int,
         default=3,
@@ -346,6 +353,7 @@ def main() -> None:
         device=args.device,
         dtype=dtype,
         optimization_level=args.optimization_level,
+        dataset=args.calibration_dataset,
     )
 
 

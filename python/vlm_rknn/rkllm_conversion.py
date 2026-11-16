@@ -58,18 +58,19 @@ def convert_rkllm(
     device: str,
     dtype: str,
     optimization_level: int,
+    dataset: Path | None = None,
 ) -> None:
     """Load, build, and export an RKLLM model.
 
     ``fp16`` keeps the loaded float16 weights instead of running quantization.
     """
-    from rkllm.api import RKLLM
-
     if quantization == "fp16":
         if dtype != "float16":
             raise ValueError("FP16 export requires --dtype float16")
         if hybrid_rate != 0:
             raise ValueError("FP16 export requires --hybrid-rate 0")
+        if dataset is not None:
+            raise ValueError("FP16 export does not support a calibration dataset")
         do_quantization = False
         # The toolkit still accepts these build arguments when quantization is off.
         quantized_dtype = "w8a8"
@@ -85,6 +86,15 @@ def convert_rkllm(
     else:
         raise ValueError(f"Unsupported quantization {quantization!r}")
 
+    if dataset is not None:
+        if not dataset.is_file():
+            raise ValueError(f"Calibration dataset must be a readable file: {dataset}")
+        # Opening the file checks actual access, including filesystem permissions.
+        with dataset.open("rb"):
+            pass
+
+    from rkllm.api import RKLLM
+
     rkllm_cache_dir = configure_rkllm_cache(RKLLM_CACHE_DIR)
     print("\nRKLLM conversion\n----------------")
     for label, value in (
@@ -94,6 +104,7 @@ def convert_rkllm(
         ("NPU cores", npu_cores), ("Max context", max_context),
         ("Hybrid rate", hybrid_rate), ("Optimization", optimization_level),
         ("Converter", device), ("Source dtype", dtype),
+        ("Calibration", dataset or "none"),
         ("Scratch", rkllm_cache_dir),
     ):
         print(f"{label + ':':14}{value}")
@@ -113,7 +124,7 @@ def convert_rkllm(
         num_npu_core=npu_cores,
         max_context=max_context,
         extra_qparams=None,
-        dataset=None,
+        dataset=str(dataset) if dataset else None,
         hybrid_rate=hybrid_rate,
     )
     if ret != 0:

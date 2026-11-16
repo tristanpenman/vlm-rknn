@@ -1,8 +1,8 @@
 # Calibration
 
-The shared converter in [`rkllm_conversion.py`](../python/vlm_rknn/rkllm_conversion.py) currently passes `dataset=None` to RKLLM Toolkit's `build()`. Neither Gemma converter exposes a calibration dataset option, so conversions do not supply a calibration dataset.
+The shared converter in [`rkllm_conversion.py`](../python/vlm_rknn/rkllm_conversion.py) accepts an optional calibration dataset and forwards it to RKLLM Toolkit's `build()`. The Gemma 3 converter exposes this through `--calibration-dataset`; omitting it preserves `dataset=None`. These converter changes are implemented, including readable-file checks, a conversion-summary row, and rejection for FP16 export.
 
-This note proposes changes to add calibration support using the repository's existing conversion helpers and Python environments. The scope is Gemma 3 text calibration; the Gemma 4 converter currently exports FP16 only. Tokenizer behavior and the effect of calibration on each supported quantization mode still need validation.
+This note describes calibration support using the repository's existing conversion helpers and Python environments, including the remaining dataset work. The scope is Gemma 3 text calibration; the Gemma 4 converter currently exports FP16 only. Tokenizer behavior and the effect of calibration on each supported quantization mode still need validation.
 
 ## Converter changes
 

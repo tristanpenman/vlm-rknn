@@ -86,6 +86,7 @@ Relative paths are resolved from the current directory, and missing output direc
 | `--output` or `-o`         | `gemma-3-4b-it-w8a8-rk3588.rkllm`        | Destination RKLLM file                            |
 | `--target`                 | `rk3588`                                 | Target platform: `rk3588` or `rk3576`             |
 | `--quantization`           | `w8a8`                                   | `w8a8`, `w8a8_gx`, `w4a16`, or `w4a16_gx`         |
+| `--calibration-dataset`    | none                                     | Path to a text calibration JSON file              |
 | `--npu-cores`              | `3`                                      | Number of target NPU cores                        |
 | `--max-context`            | `4096`                                   | Maximum context length                            |
 | `--hybrid-rate`            | `0.25`                                   | Mixed-block quantization ratio                    |
@@ -95,6 +96,16 @@ Relative paths are resolved from the current directory, and missing output direc
 | `--skip-ollama-validation` | disabled                                 | Skip Ollama GGUF validation                       |
 
 W8A8 variants use RKLLM Toolkit's `normal` algorithm. W4A16 variants use group-wise refined quantization (`grq`), which divides weights into small groups to reduce sensitivity to outliers.
+
+Pass `--calibration-dataset path/to/dataset.json` to supply a readable text calibration file. Relative paths are resolved from the current directory. Omitting the option preserves conversion without a calibration dataset. The toolkit documents a JSON list of objects containing `input` and `target` strings:
+
+```json
+[
+  {"input": "<formatted prompt>", "target": "<reference completion>"}
+]
+```
+
+No dataset is bundled yet. Chat-template and special-token handling, and the effect on each quantization mode, still need validation with the toolkit; passing a dataset does not establish a quality improvement. The shared converter rejects calibration datasets for FP16 export, which disables quantization.
 
 For example, this command creates a W4A16 model for RK3576 with an 8192-token context using CUDA:
 
